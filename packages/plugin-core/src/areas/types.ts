@@ -104,6 +104,9 @@ export enum SupportedArea {
   /* Feature store */
   FEATURE_STORE = 'feature-store',
 
+  /* Data Hub */
+  DATA_HUB = 'data-hub',
+
   /* Model Training */
   MODEL_TRAINING = 'model-training',
   RAY_JOBS = 'ray-jobs',

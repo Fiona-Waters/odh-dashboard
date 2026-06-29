@@ -1129,6 +1129,125 @@ export type GroupKind = K8sResourceCommon & {
   users: string[];
 };
 
+export type TemplateKind = K8sResourceCommon & {
+  metadata: {
+    annotations?: Partial<{
+      tags: string;
+      iconClass?: string;
+      'opendatahub.io/template-enabled': string;
+      'opendatahub.io/modelServingSupport': string;
+      'opendatahub.io/apiProtocol': string;
+      'opendatahub.io/model-type': string;
+    }>;
+    name: string;
+    namespace: string;
+  };
+  objects: K8sDSGResource[];
+  parameters: TemplateParameter[];
+};
+
+export type TemplateParameter = {
+  name: string;
+  displayName: string;
+  description: string;
+  value: string;
+  required: boolean;
+};
+
+export type DashboardCommonConfig = {
+  enablement: boolean;
+  disableInfo: boolean;
+  disableSupport: boolean;
+  disableClusterManager: boolean;
+  disableTracking: boolean;
+  disableBYONImageStream: boolean;
+  disableISVBadges: boolean;
+  disableAppLauncher: boolean;
+  disableUserManagement: boolean;
+  disableHome: boolean;
+  disableProjects: boolean;
+  disableModelServing: boolean;
+  disableProjectScoped: boolean;
+  disableProjectSharing: boolean;
+  disableCustomServingRuntimes: boolean;
+  disablePipelines: boolean;
+  disableTrustyBiasMetrics: boolean;
+  disablePerformanceMetrics: boolean;
+  disableKServe: boolean;
+  disableKServeAuth: boolean;
+  disableKServeMetrics: boolean;
+  disableKServeRaw: boolean;
+  disableDistributedWorkloads: boolean;
+  disableModelCatalog: boolean;
+  disableModelRegistry: boolean;
+  disableModelRegistrySecureDB: boolean;
+  disableServingRuntimeParams: boolean;
+  disableStorageClasses: boolean;
+  disableNIMModelServing: boolean;
+  disableAdminConnectionTypes: boolean;
+  disableFineTuning: boolean;
+  disableLMEval: boolean;
+  disableKueue: boolean;
+  trainingJobs: boolean;
+  disableFeatureStore?: boolean;
+  genAiStudio?: boolean;
+  guardrails?: boolean;
+  automl?: boolean;
+  autorag?: boolean;
+  modelAsService?: boolean;
+  maasAuthPolicies?: boolean;
+  aiAssetCustomEndpoints?: boolean;
+  mlflowPipelines?: boolean;
+  mcpCatalog?: boolean;
+  toolCalling?: boolean;
+  projectRBAC?: boolean;
+  observabilityDashboard?: boolean;
+  disableLLMd?: boolean;
+  deploymentWizardYAMLViewer?: boolean;
+  externalVectorStores?: boolean;
+  vLLMDeploymentOnMaaS?: boolean;
+  llmGatewayField?: boolean;
+  promptManagement?: boolean;
+  nimWizard?: boolean;
+  mySubscriptions?: boolean;
+  agentOps?: boolean;
+  roleManagement?: boolean;
+  disableDataHub?: boolean;
+};
+
+// [1] Intentionally disjointed fields from the CRD in this type definition
+// but still present in the CRD until we upgrade the CRD version.
+export type DashboardConfigKind = K8sResourceCommon & {
+  spec: {
+    dashboardConfig: DashboardCommonConfig;
+    // Intentionally disjointed from the CRD [1]
+    // groupsConfig?: {
+    notebookSizes?: NotebookSize[]; // deprecated
+    modelServerSizes?: ModelServingSize[]; // deprecated
+    notebookController?: {
+      enabled: boolean;
+      pvcSize?: string;
+      storageClassName?: string;
+      // Intentionally disjointed from the CRD [1]
+      // notebookNamespace?: string;
+      // Intentionally disjointed from the CRD [1]
+      // notebookTolerationSettings?: TolerationSettings;
+    };
+    templateOrder?: string[];
+    templateDisablement?: string[];
+    hardwareProfileOrder?: string[];
+    modelServing?: {
+      deploymentStrategy?: string;
+      isLLMdDefault?: boolean;
+    };
+    genAiStudioConfig?: {
+      aiAssetCustomEndpoints?: {
+        externalProviders?: boolean;
+        clusterDomains?: string[];
+      };
+    };
+  };
+};
 /**
  * @deprecated -- accelerator profiles are going away; only in deprecation paths
  * used by *both* modelmesh and finetuning
