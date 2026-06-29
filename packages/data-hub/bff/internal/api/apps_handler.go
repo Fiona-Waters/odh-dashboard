@@ -109,11 +109,11 @@ func (app *App) DeleteAppHandler(w http.ResponseWriter, r *http.Request, ps http
 }
 
 func loadAppsRegistry(r *http.Request) AppsRegistry {
-	client := newUCClient()
+	client := newFeastClient()
 	ns := getAppsNamespace()
 	url := fmt.Sprintf("%s/api/v1/namespaces/%s/configmaps/uc-registered-apps", getK8sAPIURL(), ns)
 
-	req, _ := ucRequest(r, http.MethodGet, url, nil)
+	req, _ := feastRequest(r, http.MethodGet, url, nil)
 	resp, err := client.Do(req)
 	if err != nil || resp.StatusCode != 200 {
 		if resp != nil {
@@ -140,7 +140,7 @@ func loadAppsRegistry(r *http.Request) AppsRegistry {
 }
 
 func saveAppsRegistry(r *http.Request, registry AppsRegistry) {
-	client := newUCClient()
+	client := newFeastClient()
 	ns := getAppsNamespace()
 
 	appsJSON, _ := json.Marshal(registry)
@@ -160,11 +160,11 @@ func saveAppsRegistry(r *http.Request, registry AppsRegistry) {
 
 	url := fmt.Sprintf("%s/api/v1/namespaces/%s/configmaps/uc-registered-apps", getK8sAPIURL(), ns)
 
-	getReq, _ := ucRequest(r, http.MethodGet, url, nil)
+	getReq, _ := feastRequest(r, http.MethodGet, url, nil)
 	getResp, err := client.Do(getReq)
 	if err == nil && getResp.StatusCode == 200 {
 		getResp.Body.Close()
-		putReq, _ := ucRequest(r, http.MethodPut, url, stringReader(string(cmJSON)))
+		putReq, _ := feastRequest(r, http.MethodPut, url, stringReader(string(cmJSON)))
 		putResp, _ := client.Do(putReq)
 		if putResp != nil {
 			putResp.Body.Close()
@@ -174,7 +174,7 @@ func saveAppsRegistry(r *http.Request, registry AppsRegistry) {
 			getResp.Body.Close()
 		}
 		createURL := fmt.Sprintf("%s/api/v1/namespaces/%s/configmaps", getK8sAPIURL(), ns)
-		createReq, _ := ucRequest(r, http.MethodPost, createURL, stringReader(string(cmJSON)))
+		createReq, _ := feastRequest(r, http.MethodPost, createURL, stringReader(string(cmJSON)))
 		createResp, _ := client.Do(createReq)
 		if createResp != nil {
 			createResp.Body.Close()

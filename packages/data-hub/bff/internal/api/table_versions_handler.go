@@ -59,7 +59,7 @@ func (app *App) TableVersionsHandler(w http.ResponseWriter, r *http.Request, ps 
 	versionsURL := fmt.Sprintf("%s/api/v1/namespaces/%s/datasets/%s/versions",
 		marquezAPIURL, catalogName, datasetName)
 
-	client := newUCClient()
+	client := newFeastClient()
 	resp, err := client.Get(versionsURL)
 	if err != nil {
 		app.serverErrorResponse(w, r, fmt.Errorf("failed to fetch Marquez versions: %w", err))

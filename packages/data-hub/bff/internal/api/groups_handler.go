@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -32,13 +33,13 @@ type CreateGroupRequest struct {
 
 func (app *App) ListGroupsHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	k8sURL := fmt.Sprintf("%s/apis/user.openshift.io/v1/groups", getK8sAPIURL())
-	req, err := ucRequest(r, http.MethodGet, k8sURL, nil)
+	req, err := feastRequest(r, http.MethodGet, k8sURL, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
 
-	resp, err := newUCClient().Do(req)
+	resp, err := newFeastClient().Do(req)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -73,9 +74,8 @@ func (app *App) CreateGroupHandler(w http.ResponseWriter, r *http.Request, _ htt
 	}
 
 	groupName := "uc-" + req.Name
-	client := newUCClient()
+	client := newFeastClient()
 
-	// 1. Create OCP Group
 	group := OCPGroup{
 		APIVersion: "user.openshift.io/v1",
 		Kind:       "Group",
@@ -85,7 +85,7 @@ func (app *App) CreateGroupHandler(w http.ResponseWriter, r *http.Request, _ htt
 	groupJSON, _ := json.Marshal(group)
 	k8sURL := fmt.Sprintf("%s/apis/user.openshift.io/v1/groups", getK8sAPIURL())
 
-	k8sReq, err := ucRequest(r, http.MethodPost, k8sURL, io.NopCloser(jsonReader(groupJSON)))
+	k8sReq, err := feastRequest(r, http.MethodPost, k8sURL, io.NopCloser(jsonReader(groupJSON)))
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -98,58 +98,19 @@ func (app *App) CreateGroupHandler(w http.ResponseWriter, r *http.Request, _ htt
 	}
 	groupResp.Body.Close()
 
-	// 2. Create UC catalog matching group name
-	catalogBody := fmt.Sprintf(`{"name":"%s","comment":"Catalog for group %s"}`, req.Name, groupName)
-	catalogURL := fmt.Sprintf("%s/api/2.1/unity-catalog/catalogs", getUCDirectURL())
-	catReq, _ := ucAdminRequest(r, http.MethodPost, catalogURL, stringReader(catalogBody))
-	catResp, err := client.Do(catReq)
+	// Create Feast namespace matching group name
+	feastBody := fmt.Sprintf(`{"namespace":["%s"],"properties":{}}`, req.Name)
+	nsURL := feastURL("/namespaces")
+	nsReq, _ := feastRequest(r, http.MethodPost, nsURL, strings.NewReader(feastBody))
+	nsResp, err := client.Do(nsReq)
 	if err != nil {
-		app.logger.Error("Failed to create UC catalog", "error", err, "catalog", req.Name)
+		app.logger.Error("Failed to create Feast namespace", "error", err, "namespace", req.Name)
 	} else {
-		catBody, _ := io.ReadAll(catResp.Body)
-		app.logger.Info("UC catalog creation response", "status", catResp.StatusCode, "body", string(catBody), "catalog", req.Name)
-		catResp.Body.Close()
-	}
-
-	// 3. Create SCIM users for each member + grant USE CATALOG
-	for _, user := range req.Users {
-		scimBody := fmt.Sprintf(`{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"userName":"%s","displayName":"%s","active":true,"emails":[{"value":"%s","primary":true}]}`, user, user, user)
-		scimURL := fmt.Sprintf("%s/api/1.0/unity-control/scim2/Users", getUCDirectURL())
-		scimReq, _ := ucAdminRequest(r, http.MethodPost, scimURL, stringReader(scimBody))
-		scimResp, err := client.Do(scimReq)
-		if err != nil {
-			app.logger.Error("SCIM user creation failed", "error", err, "user", user)
-		} else {
-			scimRespBody, _ := io.ReadAll(scimResp.Body)
-			app.logger.Info("SCIM user response", "status", scimResp.StatusCode, "body", string(scimRespBody), "user", user)
-			scimResp.Body.Close()
-		}
-
-		// Grant USE CATALOG
-		grantBody := fmt.Sprintf(`{"changes":[{"principal":"%s","add":["USE CATALOG"]}]}`, user)
-		grantURL := fmt.Sprintf("%s/api/2.1/unity-catalog/permissions/catalog/%s", getUCDirectURL(), req.Name)
-		app.logger.Info("Granting USE CATALOG", "url", grantURL, "user", user, "catalog", req.Name)
-		grantReq, grantErr := ucAdminRequest(r, http.MethodPatch, grantURL, stringReader(grantBody))
-		if grantErr != nil {
-			app.logger.Error("Failed to create grant request", "error", grantErr)
-			continue
-		}
-		grantResp, err := client.Do(grantReq)
-		if err != nil {
-			app.logger.Error("Grant request failed", "error", err, "user", user)
-		} else {
-			grantRespBody, _ := io.ReadAll(grantResp.Body)
-			app.logger.Info("Grant response", "status", grantResp.StatusCode, "body", string(grantRespBody), "user", user)
-			grantResp.Body.Close()
-		}
+		nsResp.Body.Close()
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, `{"status":"ok","group":"%s","catalog":"%s","members":%d}`, groupName, req.Name, len(req.Users))
-}
-
-func stringReader(s string) io.Reader {
-	return io.NopCloser(bytesReader([]byte(s)))
 }
 
 func jsonReader(data []byte) io.Reader {
@@ -176,26 +137,25 @@ func (br *bytesReaderStruct) Read(p []byte) (n int, err error) {
 
 func (app *App) DeleteGroupHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	name := ps.ByName("name")
-	client := newUCClient()
+	client := newFeastClient()
 
-	// 1. Delete OCP Group
 	k8sURL := fmt.Sprintf("%s/apis/user.openshift.io/v1/groups/%s", getK8sAPIURL(), name)
-	k8sReq, _ := ucRequest(r, http.MethodDelete, k8sURL, nil)
+	k8sReq, _ := feastRequest(r, http.MethodDelete, k8sURL, nil)
 	k8sResp, err := client.Do(k8sReq)
 	if err == nil {
 		k8sResp.Body.Close()
 	}
 
-	// 2. Delete UC catalog (name without uc- prefix)
+	// Delete Feast namespace (name without uc- prefix)
 	catalogName := name
 	if len(name) > 3 && name[:3] == "uc-" {
 		catalogName = name[3:]
 	}
-	catURL := fmt.Sprintf("%s/api/2.1/unity-catalog/catalogs/%s?force=true", getUCDirectURL(), catalogName)
-	catReq, _ := ucAdminRequest(r, http.MethodDelete, catURL, nil)
-	catResp, err := client.Do(catReq)
+	nsURL := feastURL("/namespaces/%s", catalogName)
+	nsReq, _ := feastRequest(r, http.MethodDelete, nsURL, nil)
+	nsResp, err := client.Do(nsReq)
 	if err == nil {
-		catResp.Body.Close()
+		nsResp.Body.Close()
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -204,13 +164,13 @@ func (app *App) DeleteGroupHandler(w http.ResponseWriter, r *http.Request, ps ht
 
 func (app *App) ListOCPUsersHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	k8sURL := fmt.Sprintf("%s/apis/user.openshift.io/v1/users", getK8sAPIURL())
-	req, err := ucRequest(r, http.MethodGet, k8sURL, nil)
+	req, err := feastRequest(r, http.MethodGet, k8sURL, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
 
-	client := newUCClient()
+	client := newFeastClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)

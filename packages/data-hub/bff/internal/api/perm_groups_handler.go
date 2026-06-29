@@ -18,13 +18,13 @@ const (
 
 func (app *App) ListPermGroupsHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	k8sURL := fmt.Sprintf("%s/apis/user.openshift.io/v1/groups", getK8sAPIURL())
-	req, err := ucRequest(r, http.MethodGet, k8sURL, nil)
+	req, err := feastRequest(r, http.MethodGet, k8sURL, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
 
-	resp, err := newUCClient().Do(req)
+	resp, err := newFeastClient().Do(req)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -68,13 +68,13 @@ func (app *App) CreatePermGroupHandler(w http.ResponseWriter, r *http.Request, _
 	groupJSON, _ := json.Marshal(group)
 	k8sURL := fmt.Sprintf("%s/apis/user.openshift.io/v1/groups", getK8sAPIURL())
 
-	k8sReq, err := ucRequest(r, http.MethodPost, k8sURL, io.NopCloser(jsonReader(groupJSON)))
+	k8sReq, err := feastRequest(r, http.MethodPost, k8sURL, io.NopCloser(jsonReader(groupJSON)))
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
 
-	k8sResp, err := newUCClient().Do(k8sReq)
+	k8sResp, err := newFeastClient().Do(k8sReq)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -95,8 +95,8 @@ func (app *App) CreatePermGroupHandler(w http.ResponseWriter, r *http.Request, _
 func (app *App) DeletePermGroupHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	name := ps.ByName("name")
 	k8sURL := fmt.Sprintf("%s/apis/user.openshift.io/v1/groups/%s", getK8sAPIURL(), name)
-	k8sReq, _ := ucRequest(r, http.MethodDelete, k8sURL, nil)
-	k8sResp, err := newUCClient().Do(k8sReq)
+	k8sReq, _ := feastRequest(r, http.MethodDelete, k8sURL, nil)
+	k8sResp, err := newFeastClient().Do(k8sReq)
 	if err == nil {
 		k8sResp.Body.Close()
 	}
@@ -107,7 +107,7 @@ func (app *App) DeletePermGroupHandler(w http.ResponseWriter, r *http.Request, p
 
 func (app *App) PatchPermGroupHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	name := ps.ByName("name")
-	client := newUCClient()
+	client := newFeastClient()
 
 	var req struct {
 		AddUsers    []string `json:"addUsers"`
@@ -117,7 +117,7 @@ func (app *App) PatchPermGroupHandler(w http.ResponseWriter, r *http.Request, ps
 	json.Unmarshal(body, &req)
 
 	k8sURL := fmt.Sprintf("%s/apis/user.openshift.io/v1/groups/%s", getK8sAPIURL(), name)
-	getReq, _ := ucRequest(r, http.MethodGet, k8sURL, nil)
+	getReq, _ := feastRequest(r, http.MethodGet, k8sURL, nil)
 	getResp, err := client.Do(getReq)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
@@ -148,7 +148,7 @@ func (app *App) PatchPermGroupHandler(w http.ResponseWriter, r *http.Request, ps
 	group["users"] = users
 
 	putBody, _ := json.Marshal(group)
-	putReq, _ := ucRequest(r, http.MethodPut, k8sURL, stringReader(string(putBody)))
+	putReq, _ := feastRequest(r, http.MethodPut, k8sURL, stringReader(string(putBody)))
 	putResp, err := client.Do(putReq)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
@@ -162,11 +162,11 @@ func (app *App) PatchPermGroupHandler(w http.ResponseWriter, r *http.Request, ps
 
 func getGroupMembers(r *http.Request, groupName string) ([]string, error) {
 	k8sURL := fmt.Sprintf("%s/apis/user.openshift.io/v1/groups/%s", getK8sAPIURL(), groupName)
-	req, err := ucRequest(r, http.MethodGet, k8sURL, nil)
+	req, err := feastRequest(r, http.MethodGet, k8sURL, nil)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := newUCClient().Do(req)
+	resp, err := newFeastClient().Do(req)
 	if err != nil {
 		return nil, err
 	}
