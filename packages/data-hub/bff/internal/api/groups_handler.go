@@ -55,7 +55,7 @@ func (app *App) ListGroupsHandler(w http.ResponseWriter, r *http.Request, _ http
 
 	filtered := []OCPGroup{}
 	for _, g := range groupList.Items {
-		if len(g.Metadata.Name) > 3 && g.Metadata.Name[:3] == "uc-" {
+		if len(g.Metadata.Name) > 3 && g.Metadata.Name[:3] == "dh-" {
 			filtered = append(filtered, g)
 		}
 	}
@@ -73,7 +73,7 @@ func (app *App) CreateGroupHandler(w http.ResponseWriter, r *http.Request, _ htt
 		return
 	}
 
-	groupName := "uc-" + req.Name
+	groupName := "dh-" + req.Name
 	client := newFeastClient()
 
 	group := OCPGroup{
@@ -146,9 +146,9 @@ func (app *App) DeleteGroupHandler(w http.ResponseWriter, r *http.Request, ps ht
 		k8sResp.Body.Close()
 	}
 
-	// Delete Feast namespace (name without uc- prefix)
+	// Delete Feast namespace (name without dh- prefix)
 	catalogName := name
-	if len(name) > 3 && name[:3] == "uc-" {
+	if len(name) > 3 && name[:3] == "dh-" {
 		catalogName = name[3:]
 	}
 	nsURL := feastURL("/namespaces/%s", catalogName)

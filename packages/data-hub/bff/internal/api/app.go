@@ -169,7 +169,7 @@ func (app *App) Routes() http.Handler {
 	apiRouter.GET(UserPath, app.UserHandler)
 	apiRouter.GET(NamespacePath, app.GetNamespacesHandler)
 
-	// Unity Catalog proxy
+	// Collection endpoints
 	apiRouter.GET(CatalogsPath, app.CatalogsHandler)
 	apiRouter.POST(CatalogsPath, app.CreateCatalogHandler)
 	apiRouter.DELETE(CatalogPath, app.DeleteCatalogHandler)
@@ -188,9 +188,14 @@ func (app *App) Routes() http.Handler {
 	apiRouter.GET(TablesPath, app.ListTablesHandler)
 	apiRouter.POST(TablesPath, app.CreateTableHandler)
 	apiRouter.DELETE(TablesPath+"/:table", app.DeleteTableHandler)
+	apiRouter.POST(TablesPath+"/:table/update", app.UpdateTableHandler)
 	apiRouter.GET(VolumesPath, app.ListVolumesHandler)
 	apiRouter.POST(VolumesPath, app.CreateVolumeHandler)
 	apiRouter.DELETE(VolumesPath+"/:volume", app.DeleteVolumeHandler)
+	apiRouter.POST(VolumesPath+"/:volume/update", app.UpdateVolumeHandler)
+
+	// Namespace properties update
+	apiRouter.POST(ApiPathPrefix+"/catalogs/:name/properties", app.UpdateNamespaceHandler)
 
 	// Volume provenance (Milvus stats)
 	apiRouter.GET(ProvenancePath, app.MilvusStatsHandler)
@@ -201,12 +206,12 @@ func (app *App) Routes() http.Handler {
 	// UI config
 	apiRouter.GET(ConfigPath, app.ConfigHandler)
 
-	// Permissions management (proxy to UC)
+	// Permissions management
 	apiRouter.GET(PermissionsProxyPath, app.GetPermissionsHandler)
 	apiRouter.PATCH(PermissionsProxyPath, app.PatchPermissionsHandler)
 	apiRouter.POST(PropagateSchemaPath, app.PropagateSchemaHandler)
 
-	// Permission groups (ucg- prefix, separate from catalog groups)
+	// Permission groups (dhg- prefix, separate from collection groups)
 	apiRouter.GET(PermGroupsPath, app.ListPermGroupsHandler)
 	apiRouter.POST(PermGroupsPath, app.CreatePermGroupHandler)
 	apiRouter.DELETE(PermGroupPath, app.DeletePermGroupHandler)

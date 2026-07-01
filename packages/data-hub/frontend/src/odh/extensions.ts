@@ -20,7 +20,7 @@ const extensions: (NavExtension | RouteExtension | AreaExtension)[] = [
     type: 'app.navigation/href',
     properties: {
       id: 'data-hub-view',
-      title: 'Browse catalogs',
+      title: 'Browse collections',
       href: '/data-hub/main-view',
       section: 'data-hub',
       path: '/data-hub/main-view/*',

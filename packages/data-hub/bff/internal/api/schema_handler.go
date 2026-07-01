@@ -174,13 +174,42 @@ func (app *App) CreateTableHandler(w http.ResponseWriter, r *http.Request, ps ht
 
 	bodyBytes, _ := io.ReadAll(r.Body)
 	var ucReq struct {
-		Name string `json:"name"`
+		Name            string `json:"name"`
+		StorageLocation string `json:"storage_location"`
+		Format          string `json:"data_source_format"`
+		Columns         []struct {
+			Name     string `json:"name"`
+			TypeName string `json:"type_name"`
+		} `json:"columns"`
 	}
 	json.Unmarshal(bodyBytes, &ucReq)
 
+	icebergTypeMap := map[string]string{
+		"INT": "int", "INTEGER": "int", "LONG": "long", "STRING": "string",
+		"DOUBLE": "double", "FLOAT": "float", "BOOLEAN": "boolean",
+		"DATE": "string", "TIMESTAMP": "timestamptz",
+	}
+
+	fields := make([]map[string]interface{}, 0, len(ucReq.Columns))
+	for i, col := range ucReq.Columns {
+		icebergType := icebergTypeMap[col.TypeName]
+		if icebergType == "" {
+			icebergType = "string"
+		}
+		fields = append(fields, map[string]interface{}{
+			"id": i + 1, "name": col.Name, "required": false, "type": icebergType,
+		})
+	}
+
 	feastBody := map[string]interface{}{
 		"name":   ucReq.Name,
-		"schema": map[string]interface{}{"type": "struct", "fields": []interface{}{}},
+		"schema": map[string]interface{}{"type": "struct", "schema-id": 0, "fields": fields},
+	}
+	if ucReq.StorageLocation != "" {
+		feastBody["location"] = ucReq.StorageLocation
+	}
+	if ucReq.Format != "" {
+		feastBody["properties"] = map[string]string{"format": ucReq.Format}
 	}
 	feastJSON, _ := json.Marshal(feastBody)
 
@@ -205,9 +234,28 @@ func (app *App) CreateVolumeHandler(w http.ResponseWriter, r *http.Request, ps h
 	schemaName := ps.ByName("schema")
 
 	bodyBytes, _ := io.ReadAll(r.Body)
-	url := feastURL("/namespaces/%s/namespaces/%s/volumes", catalogName, schemaName)
+	var ucReq struct {
+		Name            string `json:"name"`
+		VolumeType      string `json:"volume_type"`
+		StorageLocation string `json:"storage_location"`
+		Comment         string `json:"comment"`
+	}
+	json.Unmarshal(bodyBytes, &ucReq)
 
-	req, err := feastRequest(r, http.MethodPost, url, strings.NewReader(string(bodyBytes)))
+	if ucReq.VolumeType == "" {
+		ucReq.VolumeType = "EXTERNAL"
+	}
+
+	feastBody := map[string]interface{}{
+		"name":             ucReq.Name,
+		"volume-type":      ucReq.VolumeType,
+		"storage-location": ucReq.StorageLocation,
+		"comment":          ucReq.Comment,
+	}
+	feastJSON, _ := json.Marshal(feastBody)
+
+	url := feastURL("/namespaces/%s/namespaces/%s/volumes", catalogName, schemaName)
+	req, err := feastRequest(r, http.MethodPost, url, strings.NewReader(string(feastJSON)))
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -256,6 +304,73 @@ func (app *App) DeleteVolumeHandler(w http.ResponseWriter, r *http.Request, ps h
 
 	url := feastURL("/namespaces/%s/namespaces/%s/volumes/%s", catalogName, schemaName, volumeName)
 	req, err := feastRequest(r, http.MethodDelete, url, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	resp, err := newFeastClient().Do(req)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+	defer resp.Body.Close()
+	proxyResponse(w, resp)
+}
+
+func (app *App) UpdateTableHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	catalogName := ps.ByName("name")
+	schemaName := ps.ByName("schema")
+	tableName := ps.ByName("table")
+
+	bodyBytes, _ := io.ReadAll(r.Body)
+
+	url := feastURL("/namespaces/%s/namespaces/%s/tables/%s", catalogName, schemaName, tableName)
+	req, err := feastRequest(r, http.MethodPut, url, strings.NewReader(string(bodyBytes)))
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	resp, err := newFeastClient().Do(req)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+	defer resp.Body.Close()
+	proxyResponse(w, resp)
+}
+
+func (app *App) UpdateVolumeHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	catalogName := ps.ByName("name")
+	schemaName := ps.ByName("schema")
+	volumeName := ps.ByName("volume")
+
+	bodyBytes, _ := io.ReadAll(r.Body)
+
+	url := feastURL("/namespaces/%s/namespaces/%s/volumes/%s", catalogName, schemaName, volumeName)
+	req, err := feastRequest(r, http.MethodPut, url, strings.NewReader(string(bodyBytes)))
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	resp, err := newFeastClient().Do(req)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+	defer resp.Body.Close()
+	proxyResponse(w, resp)
+}
+
+func (app *App) UpdateNamespaceHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	catalogName := ps.ByName("name")
+
+	bodyBytes, _ := io.ReadAll(r.Body)
+
+	url := feastURL("/namespaces/%s/properties", catalogName)
+	req, err := feastRequest(r, http.MethodPost, url, strings.NewReader(string(bodyBytes)))
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return

@@ -55,7 +55,7 @@ const AdminPage: React.FC = () => {
   const [deletingGroup, setDeletingGroup] = React.useState<string | null>(null);
   const [managingGroup, setManagingGroup] = React.useState<string | null>(null);
   const [addMemberEmail, setAddMemberEmail] = React.useState('');
-  const [addMemberRole, setAddMemberRole] = React.useState<'Reader' | 'Catalog Admin'>('Reader');
+  const [addMemberRole, setAddMemberRole] = React.useState<'Reader' | 'Collection Admin'>('Reader');
   const [addMemberSelectOpen, setAddMemberSelectOpen] = React.useState(false);
   const [addMemberRoleOpen, setAddMemberRoleOpen] = React.useState(false);
   const [addingMember, setAddingMember] = React.useState(false);
@@ -157,7 +157,7 @@ const AdminPage: React.FC = () => {
           <StackItem>
             <Flex>
               <FlexItem>
-                <Content component="h2">Groups & Catalogs</Content>
+                <Content component="h2">Groups & Collections</Content>
               </FlexItem>
               <FlexItem align={{ default: 'alignRight' }}>
                 <Button
@@ -172,7 +172,7 @@ const AdminPage: React.FC = () => {
           </StackItem>
           <StackItem>
             <Content component="p">
-              Each group automatically creates a matching catalog. Members get access to the catalog.
+              Each group automatically creates a matching collection. Members get access to the collection.
             </Content>
           </StackItem>
           <StackItem>
@@ -184,7 +184,7 @@ const AdminPage: React.FC = () => {
                 variant={EmptyStateVariant.sm}
               >
                 <EmptyStateBody>
-                  Create a group to organize users and assign catalog access.
+                  Create a group to organize users and assign collection access.
                 </EmptyStateBody>
               </EmptyState>
             ) : (
@@ -199,7 +199,7 @@ const AdminPage: React.FC = () => {
                               <StackItem>{g.metadata.name}</StackItem>
                               <StackItem>
                                 <Label color="blue" isCompact>
-                                  catalog: {g.metadata.name.replace('uc-', '')}
+                                  collection: {g.metadata.name.replace('dh-', '')}
                                 </Label>
                               </StackItem>
                             </Stack>
@@ -258,14 +258,14 @@ const AdminPage: React.FC = () => {
 
       {showCreateGroup ? (
         <Modal isOpen onClose={() => setShowCreateGroup(false)} variant="medium">
-          <ModalHeader title="Create Group & Catalog" />
+          <ModalHeader title="Create Group & Collection" />
           <ModalBody>
             <Form>
               <FormGroup
                 label="Group name"
                 isRequired
                 fieldId="group-name"
-                helperText="A matching catalog will be created automatically. Group will be prefixed with 'uc-'."
+                helperText="A matching collection will be created automatically. Group will be prefixed with 'dh-'."
               >
                 <TextInput
                   id="group-name"
@@ -352,7 +352,7 @@ const AdminPage: React.FC = () => {
 
         const handleAddMemberToGroup = () => {
           setAddingMember(true);
-          const endpoint = addMemberRole === 'Catalog Admin'
+          const endpoint = addMemberRole === 'Collection Admin'
             ? `${API_PREFIX}/catalogs/${catalogName}/set-admin`
             : `${API_PREFIX}/catalogs/${catalogName}/members`;
           fetch(endpoint, {
@@ -429,7 +429,7 @@ const AdminPage: React.FC = () => {
                             onOpenChange={setAddMemberRoleOpen}
                             selected={addMemberRole}
                             onSelect={(_e, value) => {
-                              setAddMemberRole(String(value) as 'Reader' | 'Catalog Admin');
+                              setAddMemberRole(String(value) as 'Reader' | 'Collection Admin');
                               setAddMemberRoleOpen(false);
                             }}
                             toggle={(toggleRef) => (
@@ -445,7 +445,7 @@ const AdminPage: React.FC = () => {
                           >
                             <SelectList>
                               <SelectOption value="Reader">Reader</SelectOption>
-                              <SelectOption value="Catalog Admin">Catalog Admin</SelectOption>
+                              <SelectOption value="Collection Admin">Collection Admin</SelectOption>
                             </SelectList>
                           </Select>
                         </FormGroup>

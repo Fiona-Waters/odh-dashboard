@@ -353,3 +353,7 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+
+# Cross-compiled Go binaries
+bff-linux-amd64
+data-hub-bff

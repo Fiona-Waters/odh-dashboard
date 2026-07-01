@@ -186,7 +186,7 @@ const AppsPage: React.FC = () => {
           <SplitItem isFilled>
             <Content component="h1">Registered Apps</Content>
             <Content component="p">
-              Register RAG applications to connect them with Unity Catalog volumes, Marquez lineage,
+              Register RAG applications to connect them with data catalog volumes, Marquez lineage,
               and MLflow traces.
             </Content>
           </SplitItem>

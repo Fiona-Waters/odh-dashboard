@@ -13,7 +13,7 @@ import (
 const (
 	PermGroupsPath = ApiPathPrefix + "/perm-groups"
 	PermGroupPath  = ApiPathPrefix + "/perm-groups/:name"
-	permGroupPfx   = "ucg-"
+	permGroupPfx   = "dhg-"
 )
 
 func (app *App) ListPermGroupsHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {

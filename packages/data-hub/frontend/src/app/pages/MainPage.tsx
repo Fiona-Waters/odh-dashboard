@@ -25,7 +25,7 @@ import {
   StackItem,
   TextInput,
 } from '@patternfly/react-core';
-import { CatalogIcon, CogIcon, PlusCircleIcon, TrashIcon } from '@patternfly/react-icons';
+import { CatalogIcon, CogIcon, PencilAltIcon, PlusCircleIcon, TrashIcon } from '@patternfly/react-icons';
 import CatalogDetailPage from './CatalogDetailPage';
 
 type Catalog = {
@@ -46,6 +46,10 @@ const MainPage: React.FC = () => {
   const [newCatalogName, setNewCatalogName] = React.useState('');
   const [newCatalogComment, setNewCatalogComment] = React.useState('');
 
+  const [editingCatalog, setEditingCatalog] = React.useState<Catalog | null>(null);
+  const [editComment, setEditComment] = React.useState('');
+  const [savingEdit, setSavingEdit] = React.useState(false);
+
   React.useEffect(() => {
     fetch('/data-hub/api/v1/admin')
       .then((r) => r.json())
@@ -64,6 +68,24 @@ const MainPage: React.FC = () => {
       setNewCatalogComment('');
       fetchCatalogs();
     });
+  };
+
+  const openEditCatalog = (catalog: Catalog) => {
+    setEditingCatalog(catalog);
+    setEditComment(catalog.comment || '');
+  };
+
+  const handleUpdateCatalog = () => {
+    if (!editingCatalog) return;
+    setSavingEdit(true);
+    fetch(`/data-hub/api/v1/catalogs/${editingCatalog.name}/properties`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ updates: { description: editComment } }),
+    })
+      .then(() => { setEditingCatalog(null); fetchCatalogs(); })
+      .catch(() => {})
+      .finally(() => setSavingEdit(false));
   };
 
   const fetchCatalogs = React.useCallback(() => {
@@ -108,7 +130,7 @@ const MainPage: React.FC = () => {
                 <Content component="h1">Data Hub</Content>
               </StackItem>
               <StackItem>
-                <Content component="p">Browse and manage Unity Catalog data assets</Content>
+                <Content component="p">Browse and manage your data assets</Content>
               </StackItem>
             </Stack>
           </SplitItem>
@@ -121,7 +143,7 @@ const MainPage: React.FC = () => {
                     icon={<PlusCircleIcon />}
                     onClick={() => setShowCreateCatalog(true)}
                   >
-                    Create catalog
+                    Create collection
                   </Button>
                 </StackItem>
                 <StackItem>
@@ -141,11 +163,11 @@ const MainPage: React.FC = () => {
       </PageSection>
       <PageSection hasBodyWrapper={false}>
         {!loaded ? (
-          <Spinner aria-label="Loading catalogs" />
+          <Spinner aria-label="Loading collections" />
         ) : error ? (
           <EmptyState
             headingLevel="h2"
-            titleText="Unable to load catalogs"
+            titleText="Unable to load collections"
             variant={EmptyStateVariant.lg}
             icon={CatalogIcon}
           >
@@ -157,14 +179,14 @@ const MainPage: React.FC = () => {
         ) : catalogs.length === 0 ? (
           <EmptyState
             headingLevel="h2"
-            titleText="No catalogs found"
+            titleText="No collections found"
             variant={EmptyStateVariant.lg}
             icon={CatalogIcon}
           >
             <EmptyStateBody>
               {isAdmin
-                ? 'Create your first catalog to get started.'
-                : 'No catalogs are available. Ask a UC admin to grant you access.'}
+                ? 'Create your first collection to get started.'
+                : 'No collections are available. Ask an admin to grant you access.'}
             </EmptyStateBody>
           </EmptyState>
         ) : (
@@ -182,18 +204,40 @@ const MainPage: React.FC = () => {
                         {catalog.name}
                       </SplitItem>
                       <SplitItem>
-                        <Label color="blue">Catalog</Label>
+                        <Label color="blue">Collection</Label>
                       </SplitItem>
                       {isAdmin ? (
                         <SplitItem>
                           <Button
                             variant="plain"
-                            aria-label={`Delete catalog ${catalog.name}`}
+                            aria-label={`Edit collection ${catalog.name}`}
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (window.confirm(`Delete catalog "${catalog.name}" and all its contents?`)) {
+                              openEditCatalog(catalog);
+                            }}
+                          >
+                            <PencilAltIcon />
+                          </Button>
+                        </SplitItem>
+                      ) : null}
+                      {isAdmin ? (
+                        <SplitItem>
+                          <Button
+                            variant="plain"
+                            aria-label={`Delete collection ${catalog.name}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (window.confirm(`Delete collection "${catalog.name}"?`)) {
                                 fetch(`/data-hub/api/v1/catalogs/${catalog.name}`, { method: 'DELETE' })
-                                  .then(() => fetchCatalogs());
+                                  .then((r) => {
+                                    if (!r.ok) {
+                                      return r.json().then((d) => {
+                                        alert(d.message || 'Cannot delete: collection may still contain tables or volumes.');
+                                      });
+                                    }
+                                    fetchCatalogs();
+                                  })
+                                  .catch(() => alert('Failed to delete collection.'));
                               }
                             }}
                           >
@@ -229,7 +273,7 @@ const MainPage: React.FC = () => {
       </PageSection>
       {showCreateCatalog ? (
         <Modal isOpen onClose={() => setShowCreateCatalog(false)} variant="small">
-          <ModalHeader title="Create Catalog" />
+          <ModalHeader title="Create Collection" />
           <ModalBody>
             <Form>
               <FormGroup label="Name" isRequired fieldId="catalog-name">
@@ -243,6 +287,22 @@ const MainPage: React.FC = () => {
           <ModalFooter>
             <Button variant="primary" onClick={handleCreateCatalog} isDisabled={!newCatalogName}>Create</Button>
             <Button variant="link" onClick={() => setShowCreateCatalog(false)}>Cancel</Button>
+          </ModalFooter>
+        </Modal>
+      ) : null}
+      {editingCatalog ? (
+        <Modal isOpen onClose={() => setEditingCatalog(null)} variant="small">
+          <ModalHeader title={`Edit collection: ${editingCatalog.name}`} />
+          <ModalBody>
+            <Form>
+              <FormGroup label="Description" fieldId="edit-catalog-comment">
+                <TextInput id="edit-catalog-comment" value={editComment} onChange={(_e, v) => setEditComment(v)} />
+              </FormGroup>
+            </Form>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="primary" onClick={handleUpdateCatalog} isDisabled={savingEdit} isLoading={savingEdit}>Save</Button>
+            <Button variant="link" onClick={() => setEditingCatalog(null)}>Cancel</Button>
           </ModalFooter>
         </Modal>
       ) : null}

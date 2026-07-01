@@ -1,0 +1,20 @@
+ARG UI_SOURCE_CODE=./frontend
+ARG NODE_BASE_IMAGE=node:22
+
+FROM ${NODE_BASE_IMAGE} AS ui-builder
+ARG UI_SOURCE_CODE
+ARG DEPLOYMENT_MODE
+ARG STYLE_THEME
+WORKDIR /usr/src/app
+COPY ${UI_SOURCE_CODE} /usr/src/app
+RUN npm cache clean --force
+RUN npm ci --omit=optional
+RUN npm run build:prod
+
+FROM gcr.io/distroless/static:nonroot
+WORKDIR /
+COPY bff-linux-amd64 /bff
+COPY --from=ui-builder /usr/src/app/dist ./static/
+USER 65532:65532
+EXPOSE 8080
+ENTRYPOINT ["/bff"]

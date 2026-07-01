@@ -68,18 +68,18 @@ type PermGroup = {
 };
 
 const PRIVILEGE_OPTIONS: Record<string, string[]> = {
-  catalog: ['USE CATALOG', 'CATALOG ADMIN'],
+  catalog: ['USE COLLECTION', 'COLLECTION ADMIN'],
   schema: ['USE SCHEMA', 'CREATE TABLE', 'CREATE VOLUME'],
   volume: ['READ VOLUME', 'WRITE VOLUME'],
   table: ['SELECT', 'MODIFY'],
 };
 
-const CATALOG_ADMIN_PRIVILEGES = ['USE CATALOG', 'CREATE SCHEMA', 'SELECT', 'MODIFY'];
+const CATALOG_ADMIN_PRIVILEGES = ['USE COLLECTION', 'CREATE SCHEMA', 'SELECT', 'MODIFY'];
 
 const PRIVILEGE_COLORS: Record<string, 'green' | 'blue' | 'orange' | 'cyan'> = {
-  'USE CATALOG': 'cyan',
+  'USE COLLECTION': 'cyan',
   'USE SCHEMA': 'cyan',
-  'CATALOG ADMIN': 'orange',
+  'COLLECTION ADMIN': 'orange',
   'CREATE TABLE': 'blue',
   'CREATE VOLUME': 'blue',
   'CREATE SCHEMA': 'blue',
@@ -248,8 +248,8 @@ const PermissionsPage: React.FC = () => {
     }
 
     setSubmitting(true);
-    const expandedPrivileges = addPrivileges.includes('CATALOG ADMIN')
-      ? [...CATALOG_ADMIN_PRIVILEGES, ...addPrivileges.filter((p) => p !== 'CATALOG ADMIN')]
+    const expandedPrivileges = addPrivileges.includes('COLLECTION ADMIN')
+      ? [...CATALOG_ADMIN_PRIVILEGES, ...addPrivileges.filter((p) => p !== 'COLLECTION ADMIN')]
       : addPrivileges;
     const uniquePrivileges = [...new Set(expandedPrivileges)];
 
@@ -636,7 +636,7 @@ const PermissionsPage: React.FC = () => {
       <PageSection hasBodyWrapper={false}>
         <Content component="h1">Manage Permissions</Content>
         <Content component="p">
-          Grant and revoke Unity Catalog permissions on catalogs, schemas, volumes, and tables.
+          Grant and revoke permissions on collections, schemas, volumes, and tables.
           Use groups to batch-manage permissions for multiple users.
         </Content>
       </PageSection>
@@ -758,7 +758,7 @@ const PermissionsPage: React.FC = () => {
             <Stack hasGutter>
               <StackItem>
                 <Content component="p">
-                  This will grant <strong>USE CATALOG</strong> + <strong>USE SCHEMA</strong> and
+                  This will grant <strong>USE COLLECTION</strong> + <strong>USE SCHEMA</strong> and
                   propagate <strong>READ VOLUME</strong> to all volumes +{' '}
                   <strong>SELECT</strong> to all tables in this schema.
                 </Content>

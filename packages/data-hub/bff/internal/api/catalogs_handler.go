@@ -25,7 +25,8 @@ func (app *App) CatalogsHandler(w http.ResponseWriter, r *http.Request, _ httpro
 		return
 	}
 
-	resp, err := newFeastClient().Do(req)
+	client := newFeastClient()
+	resp, err := client.Do(req)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -40,13 +41,35 @@ func (app *App) CatalogsHandler(w http.ResponseWriter, r *http.Request, _ httpro
 	json.Unmarshal(body, &feastResp)
 
 	type catalog struct {
-		Name string `json:"name"`
-		ID   string `json:"id"`
+		Name      string `json:"name"`
+		ID        string `json:"id"`
+		CreatedAt int64  `json:"created_at"`
+		UpdatedAt int64  `json:"updated_at"`
+		Comment   string `json:"comment,omitempty"`
 	}
 	catalogs := make([]catalog, 0, len(feastResp.Namespaces))
 	for _, ns := range feastResp.Namespaces {
 		if len(ns) > 0 {
-			catalogs = append(catalogs, catalog{Name: ns[0], ID: ns[0]})
+			c := catalog{Name: ns[0], ID: ns[0]}
+			detailURL := feastURL("/namespaces/%s", ns[0])
+			detailReq, _ := feastRequest(r, http.MethodGet, detailURL, nil)
+			detailResp, dErr := client.Do(detailReq)
+			if dErr == nil {
+				dBody, _ := io.ReadAll(detailResp.Body)
+				detailResp.Body.Close()
+				var nsDetail struct {
+					Properties map[string]string `json:"properties"`
+				}
+				json.Unmarshal(dBody, &nsDetail)
+				if v, ok := nsDetail.Properties["created_at"]; ok {
+					fmt.Sscanf(v, "%d", &c.CreatedAt)
+				}
+				if v, ok := nsDetail.Properties["updated_at"]; ok {
+					fmt.Sscanf(v, "%d", &c.UpdatedAt)
+				}
+				c.Comment = nsDetail.Properties["description"]
+			}
+			catalogs = append(catalogs, c)
 		}
 	}
 
@@ -73,7 +96,7 @@ func (app *App) CreateCatalogHandler(w http.ResponseWriter, r *http.Request, _ h
 		"properties": map[string]string{},
 	}
 	if ucReq.Comment != "" {
-		feastBody["properties"] = map[string]string{"comment": ucReq.Comment}
+		feastBody["properties"] = map[string]string{"description": ucReq.Comment}
 	}
 
 	feastJSON, _ := json.Marshal(feastBody)

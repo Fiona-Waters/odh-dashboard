@@ -17,14 +17,21 @@ import {
   EmptyStateVariant,
   Flex,
   FlexItem,
+  Form,
+  FormGroup,
   Label,
+  Modal,
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
   PageSection,
   Split,
+  TextInput,
   SplitItem,
   Stack,
   StackItem,
 } from '@patternfly/react-core';
-import { ExternalLinkAltIcon, DatabaseIcon, FolderIcon, EyeIcon, TrashIcon, PlusCircleIcon } from '@patternfly/react-icons';
+import { ExternalLinkAltIcon, DatabaseIcon, FolderIcon, EyeIcon, TrashIcon, PlusCircleIcon, PencilAltIcon } from '@patternfly/react-icons';
 import VolumeProvenancePage from './VolumeProvenancePage';
 import TableProvenancePage from './TableProvenancePage';
 
@@ -60,6 +67,9 @@ type SchemaDetailPageProps = {
     volumes: VolumeInfo[] | null;
   };
   onBack: () => void;
+  onRefresh?: () => void;
+  onCreateTable?: () => void;
+  onCreateVolume?: () => void;
   marquezUrl?: string;
   mlflowUrl?: string;
 };
@@ -70,12 +80,27 @@ const SchemaDetailPage: React.FC<SchemaDetailPageProps> = ({
   catalogName,
   schema,
   onBack,
+  onRefresh,
+  onCreateTable,
+  onCreateVolume,
   marquezUrl = '',
   mlflowUrl = '',
 }) => {
   const [selectedVolume, setSelectedVolume] = React.useState<VolumeInfo | null>(null);
   const [selectedTable, setSelectedTable] = React.useState<TableInfo | null>(null);
   const [isAdmin, setIsAdmin] = React.useState(false);
+
+  const [editingTable, setEditingTable] = React.useState<TableInfo | null>(null);
+  const [editTableDesc, setEditTableDesc] = React.useState('');
+  const [editTableFormat, setEditTableFormat] = React.useState('');
+  const [editTableLocation, setEditTableLocation] = React.useState('');
+  const [editTableColumns, setEditTableColumns] = React.useState('');
+  const [savingTable, setSavingTable] = React.useState(false);
+
+  const [editingVolume, setEditingVolume] = React.useState<VolumeInfo | null>(null);
+  const [editVolumeComment, setEditVolumeComment] = React.useState('');
+  const [editVolumeLocation, setEditVolumeLocation] = React.useState('');
+  const [savingVolume, setSavingVolume] = React.useState(false);
 
   React.useEffect(() => {
     fetch(`${API_PREFIX}/admin`)
@@ -95,10 +120,98 @@ const SchemaDetailPage: React.FC<SchemaDetailPageProps> = ({
           ? `${API_PREFIX}/catalogs/${catalogName}/schemas/${schema.name}/volumes/${name}`
           : '';
     if (url) {
-      fetch(url, { method: 'DELETE' }).then(() => onBack());
+      fetch(url, { method: 'DELETE' }).then(() => onRefresh ? onRefresh() : onBack());
     }
   };
 
+  const openEditTable = (t: TableInfo) => {
+    setEditingTable(t);
+    setEditTableDesc(t.comment || '');
+    setEditTableFormat(t.data_source_format || '');
+    setEditTableLocation(t.storage_location || '');
+    setEditTableColumns(
+      t.columns
+        ? t.columns.sort((a, b) => a.position - b.position).map((c) => `${c.name} ${c.type_name}`).join(', ')
+        : ''
+    );
+  };
+
+  const handleUpdateTable = () => {
+    if (!editingTable) return;
+    setSavingTable(true);
+    const body: Record<string, unknown> = { description: editTableDesc };
+    if (editTableFormat !== (editingTable.data_source_format || '')) {
+      body.data_source_format = editTableFormat;
+    }
+    if (editTableLocation !== (editingTable.storage_location || '')) {
+      body.location = editTableLocation;
+    }
+    const origCols = editingTable.columns
+      ? editingTable.columns.sort((a, b) => a.position - b.position).map((c) => `${c.name} ${c.type_name}`).join(', ')
+      : '';
+    if (editTableColumns !== origCols && editTableColumns.trim()) {
+      const fields = editTableColumns.split(',').map((col, idx) => {
+        const parts = col.trim().split(' ');
+        return { id: idx + 1, name: parts[0], required: false, type: (parts[1] || 'string').toLowerCase() };
+      });
+      body.schema = { type: 'struct', 'schema-id': 0, fields };
+    }
+    fetch(`${API_PREFIX}/catalogs/${catalogName}/schemas/${schema.name}/tables/${editingTable.name}/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then((r) => {
+        if (!r.ok) {
+          return r.text().then((txt) => {
+            console.error('Update table failed:', r.status, txt);
+            alert(`Failed to update table: ${r.status} ${txt}`);
+          });
+        }
+        setEditingTable(null);
+        if (onRefresh) onRefresh();
+      })
+      .catch((err) => {
+        console.error('Update table error:', err);
+        alert(`Failed to update table: ${err.message}`);
+      })
+      .finally(() => setSavingTable(false));
+  };
+
+  const openEditVolume = (v: VolumeInfo) => {
+    setEditingVolume(v);
+    setEditVolumeComment(v.comment || '');
+    setEditVolumeLocation(v.storage_location || '');
+  };
+
+  const handleUpdateVolume = () => {
+    if (!editingVolume) return;
+    setSavingVolume(true);
+    const body: Record<string, unknown> = { comment: editVolumeComment };
+    if (editVolumeLocation !== (editingVolume.storage_location || '')) {
+      body.storage_location = editVolumeLocation;
+    }
+    fetch(`${API_PREFIX}/catalogs/${catalogName}/schemas/${schema.name}/volumes/${editingVolume.name}/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then((r) => {
+        if (!r.ok) {
+          return r.text().then((txt) => {
+            console.error('Update volume failed:', r.status, txt);
+            alert(`Failed to update volume: ${r.status} ${txt}`);
+          });
+        }
+        setEditingVolume(null);
+        if (onRefresh) onRefresh();
+      })
+      .catch((err) => {
+        console.error('Update volume error:', err);
+        alert(`Failed to update volume: ${err.message}`);
+      })
+      .finally(() => setSavingVolume(false));
+  };
 
   if (selectedTable) {
     return (
@@ -133,17 +246,27 @@ const SchemaDetailPage: React.FC<SchemaDetailPageProps> = ({
       <Breadcrumb>
         <BreadcrumbItem>
           <Button variant="link" onClick={onBack}>
-            {catalogName}
+            Data Hub
           </Button>
         </BreadcrumbItem>
-        <BreadcrumbItem isActive>{schema.name}</BreadcrumbItem>
+        <BreadcrumbItem isActive>{catalogName}</BreadcrumbItem>
       </Breadcrumb>
       <Stack hasGutter>
         <StackItem>
           <Split hasGutter>
             <SplitItem isFilled>
-              <Content component="h1">{schema.name}</Content>
+              <Content component="h1">{catalogName}</Content>
             </SplitItem>
+            {onCreateTable ? (
+              <SplitItem>
+                <Button variant="primary" icon={<PlusCircleIcon />} onClick={onCreateTable}>Add table</Button>
+              </SplitItem>
+            ) : null}
+            {onCreateVolume ? (
+              <SplitItem>
+                <Button variant="secondary" icon={<PlusCircleIcon />} onClick={onCreateVolume}>Add volume</Button>
+              </SplitItem>
+            ) : null}
             <SplitItem>
               <Button
                 variant="secondary"
@@ -154,16 +277,8 @@ const SchemaDetailPage: React.FC<SchemaDetailPageProps> = ({
                 View lineage
               </Button>
             </SplitItem>
-            <SplitItem>
-              <Label color="cyan">Schema</Label>
-            </SplitItem>
           </Split>
         </StackItem>
-        {schema.comment ? (
-          <StackItem>
-            <Content component="p">{schema.comment}</Content>
-          </StackItem>
-        ) : null}
       </Stack>
     </PageSection>
 
@@ -199,6 +314,17 @@ const SchemaDetailPage: React.FC<SchemaDetailPageProps> = ({
                             <FlexItem>
                               <Label isCompact>{t.table_type}</Label>
                             </FlexItem>
+                            {isAdmin ? (
+                              <FlexItem>
+                                <Button
+                                  variant="plain"
+                                  aria-label={`Edit table ${t.name}`}
+                                  onClick={() => openEditTable(t)}
+                                >
+                                  <PencilAltIcon />
+                                </Button>
+                              </FlexItem>
+                            ) : null}
                             {isAdmin ? (
                               <FlexItem>
                                 <Button
@@ -332,6 +458,17 @@ const SchemaDetailPage: React.FC<SchemaDetailPageProps> = ({
                           <SplitItem>
                             <Button
                               variant="plain"
+                              aria-label={`Edit volume ${v.name}`}
+                              onClick={() => openEditVolume(v)}
+                            >
+                              <PencilAltIcon />
+                            </Button>
+                          </SplitItem>
+                        ) : null}
+                        {isAdmin ? (
+                          <SplitItem>
+                            <Button
+                              variant="plain"
                               aria-label={`Delete volume ${v.name}`}
                               onClick={() => handleDelete('volume', v.name)}
                             >
@@ -409,6 +546,52 @@ const SchemaDetailPage: React.FC<SchemaDetailPageProps> = ({
 
       </Stack>
     </PageSection>
+
+    {editingTable ? (
+      <Modal isOpen onClose={() => setEditingTable(null)} variant="medium">
+        <ModalHeader title={`Edit table: ${editingTable.name}`} />
+        <ModalBody>
+          <Form>
+            <FormGroup label="Description" fieldId="edit-table-desc">
+              <TextInput id="edit-table-desc" value={editTableDesc} onChange={(_e, v) => setEditTableDesc(v)} />
+            </FormGroup>
+            <FormGroup label="Format" fieldId="edit-table-format">
+              <TextInput id="edit-table-format" value={editTableFormat} onChange={(_e, v) => setEditTableFormat(v)} placeholder="parquet" />
+            </FormGroup>
+            <FormGroup label="Storage location" fieldId="edit-table-location">
+              <TextInput id="edit-table-location" value={editTableLocation} onChange={(_e, v) => setEditTableLocation(v)} placeholder="s3://bucket/path" />
+            </FormGroup>
+            <FormGroup label="Columns (comma-separated: name type)" fieldId="edit-table-columns">
+              <TextInput id="edit-table-columns" value={editTableColumns} onChange={(_e, v) => setEditTableColumns(v)} placeholder="id int, name string, score float" />
+            </FormGroup>
+          </Form>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="primary" onClick={handleUpdateTable} isDisabled={savingTable} isLoading={savingTable}>Save</Button>
+          <Button variant="link" onClick={() => setEditingTable(null)}>Cancel</Button>
+        </ModalFooter>
+      </Modal>
+    ) : null}
+
+    {editingVolume ? (
+      <Modal isOpen onClose={() => setEditingVolume(null)} variant="small">
+        <ModalHeader title={`Edit volume: ${editingVolume.name}`} />
+        <ModalBody>
+          <Form>
+            <FormGroup label="Comment" fieldId="edit-volume-comment">
+              <TextInput id="edit-volume-comment" value={editVolumeComment} onChange={(_e, v) => setEditVolumeComment(v)} />
+            </FormGroup>
+            <FormGroup label="Storage location" fieldId="edit-volume-location">
+              <TextInput id="edit-volume-location" value={editVolumeLocation} onChange={(_e, v) => setEditVolumeLocation(v)} placeholder="s3://bucket/path" />
+            </FormGroup>
+          </Form>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="primary" onClick={handleUpdateVolume} isDisabled={savingVolume} isLoading={savingVolume}>Save</Button>
+          <Button variant="link" onClick={() => setEditingVolume(null)}>Cancel</Button>
+        </ModalFooter>
+      </Modal>
+    ) : null}
   </>
   );
 };

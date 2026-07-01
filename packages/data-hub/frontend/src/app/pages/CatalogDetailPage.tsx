@@ -3,37 +3,22 @@ import {
   Breadcrumb,
   BreadcrumbItem,
   Button,
-  Card,
-  CardBody,
-  CardTitle,
   Content,
   EmptyState,
   EmptyStateBody,
   EmptyStateVariant,
-  Flex,
-  FlexItem,
   Form,
   FormGroup,
-  Gallery,
-  GalleryItem,
-  Label,
-  MenuToggle,
   Modal,
   ModalBody,
   ModalFooter,
   ModalHeader,
   PageSection,
-  Select,
-  SelectList,
-  SelectOption,
   Spinner,
   Split,
   SplitItem,
-  Stack,
-  StackItem,
   TextInput,
 } from '@patternfly/react-core';
-import { CatalogIcon, PlusCircleIcon } from '@patternfly/react-icons';
 import SchemaDetailPage from './SchemaDetailPage';
 
 const API_PREFIX = '/data-hub/api/v1';
@@ -85,13 +70,8 @@ const CatalogDetailPage: React.FC<CatalogDetailPageProps> = ({ catalogName, onBa
   const [error, setError] = React.useState<string | null>(null);
   const [selectedSchema, setSelectedSchema] = React.useState<SchemaInfo | null>(null);
 
-  const [showCreateSchema, setShowCreateSchema] = React.useState(false);
-  const [newSchemaName, setNewSchemaName] = React.useState('');
-  const [newSchemaComment, setNewSchemaComment] = React.useState('');
-  const [creatingSchema, setCreatingSchema] = React.useState(false);
 
   const [showCreateTable, setShowCreateTable] = React.useState(false);
-  const [newTableSchema, setNewTableSchema] = React.useState('');
   const [newTableName, setNewTableName] = React.useState('');
   const [newTableFormat, setNewTableFormat] = React.useState('DELTA');
   const [newTableLocation, setNewTableLocation] = React.useState('');
@@ -101,7 +81,6 @@ const CatalogDetailPage: React.FC<CatalogDetailPageProps> = ({ catalogName, onBa
   const [showCreateVolume, setShowCreateVolume] = React.useState(false);
   const [newVolumeName, setNewVolumeName] = React.useState('');
   const [newVolumeLocation, setNewVolumeLocation] = React.useState('');
-  const [newVolumeSchema, setNewVolumeSchema] = React.useState('');
   const [creatingVolume, setCreatingVolume] = React.useState(false);
 
   const [uiConfig, setUiConfig] = React.useState<{
@@ -140,32 +119,11 @@ const CatalogDetailPage: React.FC<CatalogDetailPageProps> = ({ catalogName, onBa
     fetchDetail();
   }, [fetchDetail]);
 
-  const handleCreateSchema = () => {
-    setCreatingSchema(true);
-    fetch(`${API_PREFIX}/catalogs/${catalogName}/schemas`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: newSchemaName,
-        catalog_name: catalogName,
-        comment: newSchemaComment,
-      }),
-    })
-      .then((r) => {
-        if (!r.ok) {
-          return r.json().then((d) => { throw new Error(d.message || r.statusText); });
-        }
-        return r.json();
-      })
-      .then(() => {
-        setShowCreateSchema(false);
-        setNewSchemaName('');
-        setNewSchemaComment('');
-        fetchDetail();
-      })
-      .catch((e) => setError(e.message))
-      .finally(() => setCreatingSchema(false));
-  };
+  React.useEffect(() => {
+    if (detail?.schemas?.length && !selectedSchema) {
+      setSelectedSchema(detail.schemas[0]);
+    }
+  }, [detail]);
 
   const handleCreateTable = () => {
     setError(null);
@@ -188,13 +146,13 @@ const CatalogDetailPage: React.FC<CatalogDetailPageProps> = ({ catalogName, onBa
           };
         })
       : [];
-    fetch(`${API_PREFIX}/catalogs/${catalogName}/schemas/${newTableSchema}/tables`, {
+    fetch(`${API_PREFIX}/catalogs/${catalogName}/schemas/default/tables`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name: newTableName, catalog_name: catalogName, schema_name: newTableSchema,
+        name: newTableName, catalog_name: catalogName, schema_name: 'default',
         table_type: 'EXTERNAL', data_source_format: newTableFormat,
-        storage_location: newTableLocation || `s3://poc-underwriting/tables/${catalogName}/${newTableSchema}/${newTableName}`,
+        storage_location: newTableLocation || `s3://poc-underwriting/tables/${catalogName}/default/${newTableName}`,
         columns,
       }),
     })
@@ -210,7 +168,6 @@ const CatalogDetailPage: React.FC<CatalogDetailPageProps> = ({ catalogName, onBa
         setNewTableFormat('DELTA');
         setNewTableLocation('');
         setNewTableColumns('');
-        setNewTableSchema('');
         fetchDetail();
       })
       .catch((e) => setError(e.message))
@@ -219,13 +176,13 @@ const CatalogDetailPage: React.FC<CatalogDetailPageProps> = ({ catalogName, onBa
 
   const handleCreateVolume = () => {
     setCreatingVolume(true);
-    fetch(`${API_PREFIX}/catalogs/${catalogName}/schemas/${newVolumeSchema}/volumes`, {
+    fetch(`${API_PREFIX}/catalogs/${catalogName}/schemas/default/volumes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name: newVolumeName, catalog_name: catalogName, schema_name: newVolumeSchema,
+        name: newVolumeName, catalog_name: catalogName, schema_name: 'default',
         volume_type: 'EXTERNAL',
-        storage_location: newVolumeLocation || `s3://poc-underwriting/volumes/${catalogName}/${newVolumeSchema}/${newVolumeName}`,
+        storage_location: newVolumeLocation || `s3://poc-underwriting/volumes/${catalogName}/default/${newVolumeName}`,
       }),
     })
       .then((r) => {
@@ -237,7 +194,6 @@ const CatalogDetailPage: React.FC<CatalogDetailPageProps> = ({ catalogName, onBa
       .then(() => {
         setShowCreateVolume(false);
         setNewVolumeName('');
-        setNewVolumeSchema('');
         fetchDetail();
       })
       .catch((e) => setError(e.message))
@@ -250,13 +206,64 @@ const CatalogDetailPage: React.FC<CatalogDetailPageProps> = ({ catalogName, onBa
 
   if (selectedSchema) {
     return (
-      <SchemaDetailPage
-        catalogName={catalogName}
-        schema={selectedSchema}
-        onBack={() => { setSelectedSchema(null); fetchDetail(); }}
-        marquezUrl={uiConfig?.marquezUrl}
-        mlflowUrl={uiConfig?.mlflowUrl}
-      />
+      <>
+        <SchemaDetailPage
+          catalogName={catalogName}
+          schema={selectedSchema}
+          onBack={onBack}
+          onRefresh={fetchDetail}
+          onCreateTable={() => setShowCreateTable(true)}
+          onCreateVolume={() => setShowCreateVolume(true)}
+          marquezUrl={uiConfig?.marquezUrl}
+          mlflowUrl={uiConfig?.mlflowUrl}
+        />
+
+        {showCreateTable ? (
+          <Modal isOpen onClose={() => setShowCreateTable(false)} variant="small">
+            <ModalHeader title="Create Table" />
+            <ModalBody>
+              <Form>
+                <FormGroup label="Table name" isRequired fieldId="table-name">
+                  <TextInput id="table-name" value={newTableName} onChange={(_e, v) => setNewTableName(v)} isRequired />
+                </FormGroup>
+                <FormGroup label="Format" fieldId="table-format">
+                  <TextInput id="table-format" value={newTableFormat} onChange={(_e, v) => setNewTableFormat(v)} placeholder="DELTA" />
+                </FormGroup>
+                <FormGroup label="Storage location" fieldId="table-location">
+                  <TextInput id="table-location" value={newTableLocation} onChange={(_e, v) => setNewTableLocation(v)} placeholder="s3://bucket/path" />
+                </FormGroup>
+                <FormGroup label="Columns" fieldId="table-columns" helperText="Comma-separated: name type, e.g. 'id int, name string'. Leave empty for no columns.">
+                  <TextInput id="table-columns" value={newTableColumns} onChange={(_e, v) => setNewTableColumns(v)} placeholder="id int, name string, score double" />
+                </FormGroup>
+              </Form>
+            </ModalBody>
+            <ModalFooter>
+              <Button variant="primary" onClick={handleCreateTable} isDisabled={!newTableName || creatingTable} isLoading={creatingTable}>Create</Button>
+              <Button variant="link" onClick={() => setShowCreateTable(false)}>Cancel</Button>
+            </ModalFooter>
+          </Modal>
+        ) : null}
+
+        {showCreateVolume ? (
+          <Modal isOpen onClose={() => setShowCreateVolume(false)} variant="small">
+            <ModalHeader title="Create Volume" />
+            <ModalBody>
+              <Form>
+                <FormGroup label="Volume name" isRequired fieldId="volume-name">
+                  <TextInput id="volume-name" value={newVolumeName} onChange={(_e, v) => setNewVolumeName(v)} isRequired />
+                </FormGroup>
+                <FormGroup label="Storage location" fieldId="volume-location">
+                  <TextInput id="volume-location" value={newVolumeLocation} onChange={(_e, v) => setNewVolumeLocation(v)} placeholder="s3://bucket/path" />
+                </FormGroup>
+              </Form>
+            </ModalBody>
+            <ModalFooter>
+              <Button variant="primary" onClick={handleCreateVolume} isDisabled={!newVolumeName || creatingVolume} isLoading={creatingVolume}>Create</Button>
+              <Button variant="link" onClick={() => setShowCreateVolume(false)}>Cancel</Button>
+            </ModalFooter>
+          </Modal>
+        ) : null}
+      </>
     );
   }
 
@@ -296,126 +303,16 @@ const CatalogDetailPage: React.FC<CatalogDetailPageProps> = ({ catalogName, onBa
       ) : null}
 
       <PageSection hasBodyWrapper={false}>
-        <Stack hasGutter>
-          <StackItem>
-            <Flex>
-              <FlexItem>
-                <Content component="h2">Schemas</Content>
-              </FlexItem>
-              <FlexItem align={{ default: 'alignRight' }}>
-                <Button variant="primary" icon={<PlusCircleIcon />} onClick={() => setShowCreateSchema(true)}>
-                  Create schema
-                </Button>
-              </FlexItem>
-            </Flex>
-          </StackItem>
-          <StackItem>
-            {!detail?.schemas || detail.schemas.length === 0 ? (
-              <EmptyState headingLevel="h3" icon={CatalogIcon} titleText="No schemas" variant={EmptyStateVariant.sm}>
-                <EmptyStateBody>Create a schema to organize tables and volumes.</EmptyStateBody>
-              </EmptyState>
-            ) : (
-              <Gallery hasGutter minWidths={{ default: '300px' }}>
-                {detail.schemas.map((s) => (
-                  <GalleryItem key={s.name}>
-                    <Card isFullHeight onClick={() => setSelectedSchema(s)} style={{ cursor: 'pointer' }}>
-                      <CardTitle>
-                        <Split hasGutter>
-                          <SplitItem isFilled>{s.name}</SplitItem>
-                          <SplitItem>
-                            <Button
-                              variant="link"
-                              size="sm"
-                              component="a"
-                              href={`${uiConfig?.marquezUrl || ''}/lineage/dataset/${catalogName}/${s.name}.parsed_chunks?depth=6`}
-                              target="_blank"
-                              onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                            >
-                              Lineage
-                            </Button>
-                          </SplitItem>
-                          <SplitItem><Label color="cyan">Schema</Label></SplitItem>
-                        </Split>
-                      </CardTitle>
-                      <CardBody>
-                        <Stack hasGutter>
-                          <StackItem>{s.comment || 'No description'}</StackItem>
-                          {s.tables && s.tables.length > 0 ? (
-                            <StackItem>
-                              <Content component="small"><strong>Tables:</strong> {s.tables.map((t) => t.name).join(', ')}</Content>
-                            </StackItem>
-                          ) : null}
-                          {s.volumes && s.volumes.length > 0 ? (
-                            <StackItem>
-                              <Content component="small"><strong>Volumes:</strong> {s.volumes.map((v) => v.name).join(', ')}</Content>
-                            </StackItem>
-                          ) : null}
-                          <StackItem>
-                            <Split hasGutter>
-                              <SplitItem>
-                                <Button
-                                  variant="link"
-                                  size="sm"
-                                  icon={<PlusCircleIcon />}
-                                  onClick={(e: React.MouseEvent) => {
-                                    e.stopPropagation();
-                                    setNewTableSchema(s.name);
-                                    setShowCreateTable(true);
-                                  }}
-                                >
-                                  Add table
-                                </Button>
-                              </SplitItem>
-                              <SplitItem>
-                                <Button
-                                  variant="link"
-                                  size="sm"
-                                  icon={<PlusCircleIcon />}
-                                  onClick={(e: React.MouseEvent) => {
-                                    e.stopPropagation();
-                                    setNewVolumeSchema(s.name);
-                                    setShowCreateVolume(true);
-                                  }}
-                                >
-                                  Add volume
-                                </Button>
-                              </SplitItem>
-                            </Split>
-                          </StackItem>
-                        </Stack>
-                      </CardBody>
-                    </Card>
-                  </GalleryItem>
-                ))}
-              </Gallery>
-            )}
-          </StackItem>
-        </Stack>
+        <EmptyState headingLevel="h3" titleText="Loading..." variant={EmptyStateVariant.sm}>
+          <EmptyStateBody>
+            <Spinner aria-label="Loading" />
+          </EmptyStateBody>
+        </EmptyState>
       </PageSection>
-
-      {showCreateSchema ? (
-        <Modal isOpen onClose={() => setShowCreateSchema(false)} variant="small">
-          <ModalHeader title="Create Schema" />
-          <ModalBody>
-            <Form>
-              <FormGroup label="Schema name" isRequired fieldId="schema-name">
-                <TextInput id="schema-name" value={newSchemaName} onChange={(_e, v) => setNewSchemaName(v)} isRequired />
-              </FormGroup>
-              <FormGroup label="Description" fieldId="schema-comment">
-                <TextInput id="schema-comment" value={newSchemaComment} onChange={(_e, v) => setNewSchemaComment(v)} />
-              </FormGroup>
-            </Form>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="primary" onClick={handleCreateSchema} isDisabled={!newSchemaName || creatingSchema} isLoading={creatingSchema}>Create</Button>
-            <Button variant="link" onClick={() => setShowCreateSchema(false)}>Cancel</Button>
-          </ModalFooter>
-        </Modal>
-      ) : null}
 
       {showCreateTable ? (
         <Modal isOpen onClose={() => setShowCreateTable(false)} variant="small">
-          <ModalHeader title={`Create Table in ${newTableSchema}`} />
+          <ModalHeader title="Create Table" />
           <ModalBody>
             <Form>
               <FormGroup label="Table name" isRequired fieldId="table-name">
@@ -441,7 +338,7 @@ const CatalogDetailPage: React.FC<CatalogDetailPageProps> = ({ catalogName, onBa
 
       {showCreateVolume ? (
         <Modal isOpen onClose={() => setShowCreateVolume(false)} variant="small">
-          <ModalHeader title={`Create Volume in ${newVolumeSchema}`} />
+          <ModalHeader title="Create Volume" />
           <ModalBody>
             <Form>
               <FormGroup label="Volume name" isRequired fieldId="volume-name">

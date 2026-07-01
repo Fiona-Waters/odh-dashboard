@@ -111,7 +111,7 @@ func (app *App) DeleteAppHandler(w http.ResponseWriter, r *http.Request, ps http
 func loadAppsRegistry(r *http.Request) AppsRegistry {
 	client := newFeastClient()
 	ns := getAppsNamespace()
-	url := fmt.Sprintf("%s/api/v1/namespaces/%s/configmaps/uc-registered-apps", getK8sAPIURL(), ns)
+	url := fmt.Sprintf("%s/api/v1/namespaces/%s/configmaps/dh-registered-apps", getK8sAPIURL(), ns)
 
 	req, _ := feastRequest(r, http.MethodGet, url, nil)
 	resp, err := client.Do(req)
@@ -149,7 +149,7 @@ func saveAppsRegistry(r *http.Request, registry AppsRegistry) {
 		"apiVersion": "v1",
 		"kind":       "ConfigMap",
 		"metadata": map[string]string{
-			"name":      "uc-registered-apps",
+			"name":      "dh-registered-apps",
 			"namespace": ns,
 		},
 		"data": map[string]string{
@@ -158,7 +158,7 @@ func saveAppsRegistry(r *http.Request, registry AppsRegistry) {
 	}
 	cmJSON, _ := json.Marshal(cm)
 
-	url := fmt.Sprintf("%s/api/v1/namespaces/%s/configmaps/uc-registered-apps", getK8sAPIURL(), ns)
+	url := fmt.Sprintf("%s/api/v1/namespaces/%s/configmaps/dh-registered-apps", getK8sAPIURL(), ns)
 
 	getReq, _ := feastRequest(r, http.MethodGet, url, nil)
 	getResp, err := client.Do(getReq)

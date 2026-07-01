@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-hub-ui
+  namespace: option2-poc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: data-hub-ui
+  template:
+    metadata:
+      labels:
+        app: data-hub-ui
+    spec:
+      containers:
+      - name: data-hub-ui
+        image: quay.io/rh_ee_fwaters/data-hub-bff:v0.1
+        ports:
+        - containerPort: 4000
+        env:
+        - name: PORT
+          value: "4000"
+        - name: FEAST_CATALOG_URL
+          value: "http://feast-server.option2-poc.svc:6572"
+        - name: DEPLOYMENT_MODE
+          value: "federated"
+        - name: ADMIN_GROUP
+          value: "rhods-admins"
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: data-hub-ui
+  namespace: option2-poc
+spec:
+  selector:
+    app: data-hub-ui
+  ports:
+  - port: 8080
+    targetPort: 4000
