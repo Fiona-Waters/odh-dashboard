@@ -103,7 +103,6 @@ func (app *App) CatalogDetailHandler(w http.ResponseWriter, r *http.Request, ps 
 				for _, t := range tResult.Identifiers {
 					ti := TableInfo{
 						Name:      t.Name,
-						Format:    "ICEBERG",
 						TableType: "MANAGED",
 					}
 
@@ -133,6 +132,12 @@ func (app *App) CatalogDetailHandler(w http.ResponseWriter, r *http.Request, ps 
 
 						ti.StorageLocation = loadResp.Metadata.Location
 						ti.Comment = loadResp.Metadata.Properties["description"]
+						if f := loadResp.Metadata.Properties["format"]; f != "" {
+							ti.Format = f
+						}
+						if tt := loadResp.Metadata.Properties["table_type"]; tt != "" {
+							ti.TableType = tt
+						}
 
 						if len(loadResp.Metadata.Schemas) > 0 {
 							for i, f := range loadResp.Metadata.Schemas[0].Fields {
