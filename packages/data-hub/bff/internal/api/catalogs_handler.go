@@ -86,17 +86,22 @@ func (app *App) CreateCatalogHandler(w http.ResponseWriter, r *http.Request, _ h
 
 	bodyBytes, _ := io.ReadAll(r.Body)
 	var ucReq struct {
-		Name    string `json:"name"`
-		Comment string `json:"comment"`
+		Name       string            `json:"name"`
+		Comment    string            `json:"comment"`
+		Properties map[string]string `json:"properties"`
 	}
 	json.Unmarshal(bodyBytes, &ucReq)
 
-	feastBody := map[string]interface{}{
-		"namespace":  []string{ucReq.Name},
-		"properties": map[string]string{},
+	props := make(map[string]string)
+	for k, v := range ucReq.Properties {
+		props[k] = v
 	}
 	if ucReq.Comment != "" {
-		feastBody["properties"] = map[string]string{"description": ucReq.Comment}
+		props["description"] = ucReq.Comment
+	}
+	feastBody := map[string]interface{}{
+		"namespace":  []string{ucReq.Name},
+		"properties": props,
 	}
 
 	feastJSON, _ := json.Marshal(feastBody)

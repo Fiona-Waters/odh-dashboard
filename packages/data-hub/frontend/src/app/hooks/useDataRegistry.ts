@@ -108,3 +108,115 @@ export const useTraces = (
 
 export const useUIConfig = (): FetchState<UIConfig | null> =>
   useBffFetch<UIConfig | null>(`${API_PREFIX}/config`, null);
+
+// --- Mutation helpers (not hooks — plain async fetch wrappers) ---
+
+export async function createCatalog(
+  name: string,
+  comment?: string,
+  properties?: Record<string, string>,
+): Promise<void> {
+  const resp = await fetch(`${API_PREFIX}/catalogs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, comment, properties }),
+  });
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({}));
+    throw new Error(body.message || body.error?.message || `${resp.status} ${resp.statusText}`);
+  }
+}
+
+export async function createTable(
+  catalogName: string,
+  schemaName: string,
+  table: {
+    name: string;
+    data_source_format?: string;
+    storage_location?: string;
+    columns?: { name: string; type_name: string }[];
+  },
+): Promise<void> {
+  const resp = await fetch(`${API_PREFIX}/catalogs/${catalogName}/schemas/${schemaName}/tables`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: table.name,
+      catalog_name: catalogName,
+      schema_name: schemaName,
+      table_type: 'EXTERNAL',
+      data_source_format: table.data_source_format || 'DELTA',
+      storage_location: table.storage_location,
+      columns: table.columns || [],
+    }),
+  });
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({}));
+    throw new Error(body.message || body.error?.message || `${resp.status} ${resp.statusText}`);
+  }
+}
+
+export async function createVolume(
+  catalogName: string,
+  schemaName: string,
+  volume: {
+    name: string;
+    storage_location?: string;
+    comment?: string;
+    properties?: Record<string, string>;
+  },
+): Promise<void> {
+  const resp = await fetch(`${API_PREFIX}/catalogs/${catalogName}/schemas/${schemaName}/volumes`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: volume.name,
+      catalog_name: catalogName,
+      schema_name: schemaName,
+      volume_type: 'EXTERNAL',
+      storage_location: volume.storage_location,
+      comment: volume.comment,
+      properties: volume.properties,
+    }),
+  });
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({}));
+    throw new Error(body.message || body.error?.message || `${resp.status} ${resp.statusText}`);
+  }
+}
+
+async function mutate(url: string, method: string, body?: unknown): Promise<void> {
+  const opts: RequestInit = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const resp = await fetch(url, opts);
+  if (!resp.ok) {
+    const b = await resp.json().catch(() => ({}));
+    throw new Error(b.message || b.error?.message || `${resp.status} ${resp.statusText}`);
+  }
+}
+
+export const deleteCatalog = (name: string) =>
+  mutate(`${API_PREFIX}/catalogs/${name}`, 'DELETE');
+
+export const deleteTable = (catalogName: string, schemaName: string, tableName: string) =>
+  mutate(`${API_PREFIX}/catalogs/${catalogName}/schemas/${schemaName}/tables/${tableName}`, 'DELETE');
+
+export const deleteVolume = (catalogName: string, schemaName: string, volumeName: string) =>
+  mutate(`${API_PREFIX}/catalogs/${catalogName}/schemas/${schemaName}/volumes/${volumeName}`, 'DELETE');
+
+export const updateCatalog = (name: string, properties: Record<string, string>) =>
+  mutate(`${API_PREFIX}/catalogs/${name}/properties`, 'POST', { updates: properties });
+
+export const updateTable = (
+  catalogName: string,
+  schemaName: string,
+  tableName: string,
+  body: Record<string, unknown>,
+) => mutate(`${API_PREFIX}/catalogs/${catalogName}/schemas/${schemaName}/tables/${tableName}/update`, 'POST', body);
+
+export const updateVolume = (
+  catalogName: string,
+  schemaName: string,
+  volumeName: string,
+  body: Record<string, unknown>,
+) => mutate(`${API_PREFIX}/catalogs/${catalogName}/schemas/${schemaName}/volumes/${volumeName}/update`, 'POST', body);

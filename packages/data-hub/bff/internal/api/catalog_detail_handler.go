@@ -31,12 +31,13 @@ type SchemaInfo struct {
 }
 
 type TableInfo struct {
-	Name            string       `json:"name"`
-	Format          string       `json:"data_source_format"`
-	TableType       string       `json:"table_type"`
-	StorageLocation string       `json:"storage_location"`
-	Comment         string       `json:"comment"`
-	Columns         []ColumnInfo `json:"columns"`
+	Name            string            `json:"name"`
+	Format          string            `json:"data_source_format"`
+	TableType       string            `json:"table_type"`
+	StorageLocation string            `json:"storage_location"`
+	Comment         string            `json:"comment"`
+	Columns         []ColumnInfo      `json:"columns"`
+	Properties      map[string]string `json:"properties,omitempty"`
 }
 
 type ColumnInfo struct {
@@ -47,10 +48,11 @@ type ColumnInfo struct {
 }
 
 type VolumeInfo struct {
-	Name            string `json:"name"`
-	Type            string `json:"volume_type"`
-	StorageLocation string `json:"storage_location"`
-	Comment         string `json:"comment"`
+	Name            string            `json:"name"`
+	Type            string            `json:"volume_type"`
+	StorageLocation string            `json:"storage_location"`
+	Comment         string            `json:"comment"`
+	Properties      map[string]string `json:"properties,omitempty"`
 }
 
 type MemberInfo struct {
@@ -154,6 +156,21 @@ func (app *App) CatalogDetailHandler(w http.ResponseWriter, r *http.Request, ps 
 								})
 							}
 						}
+
+						// Pass through user-facing properties (filter out internal keys)
+						internalKeys := map[string]bool{
+							"format": true, "table_type": true, "_catalog_managed": true,
+							"asset_type": true, "location": true, "description": true,
+						}
+						userProps := make(map[string]string)
+						for pk, pv := range loadResp.Metadata.Properties {
+							if !internalKeys[pk] {
+								userProps[pk] = pv
+							}
+						}
+						if len(userProps) > 0 {
+							ti.Properties = userProps
+						}
 					}
 
 					si.Tables = append(si.Tables, ti)
@@ -170,10 +187,11 @@ func (app *App) CatalogDetailHandler(w http.ResponseWriter, r *http.Request, ps 
 
 				var vResult struct {
 					Volumes []struct {
-						Name            string `json:"name"`
-						VolumeType      string `json:"volume-type"`
-						StorageLocation string `json:"storage-location"`
-						Comment         string `json:"comment"`
+						Name            string            `json:"name"`
+						VolumeType      string            `json:"volume-type"`
+						StorageLocation string            `json:"storage-location"`
+						Comment         string            `json:"comment"`
+						Properties      map[string]string `json:"properties"`
 					} `json:"volumes"`
 				}
 				json.Unmarshal(vBody, &vResult)
@@ -184,6 +202,7 @@ func (app *App) CatalogDetailHandler(w http.ResponseWriter, r *http.Request, ps 
 						Type:            v.VolumeType,
 						StorageLocation: v.StorageLocation,
 						Comment:         v.Comment,
+						Properties:      v.Properties,
 					})
 				}
 			}

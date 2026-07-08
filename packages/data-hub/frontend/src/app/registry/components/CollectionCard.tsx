@@ -12,15 +12,17 @@ import {
   Label,
   LabelGroup,
 } from '@patternfly/react-core';
-import { DatabaseIcon } from '@patternfly/react-icons';
+import { DatabaseIcon, PencilAltIcon, TrashIcon } from '@patternfly/react-icons';
 import type { Catalog } from '~/app/types/dataRegistry';
 import { collectionUrl } from '~/app/registry/routes';
 
 type CollectionCardProps = {
   catalog: Catalog;
+  onDelete?: (catalog: Catalog) => void;
+  onEdit?: (catalog: Catalog) => void;
 };
 
-const CollectionCard: React.FC<CollectionCardProps> = ({ catalog }) => {
+const CollectionCard: React.FC<CollectionCardProps> = ({ catalog, onDelete, onEdit }) => {
   const navigate = useNavigate();
 
   const formatDate = (ts: number): string => {
@@ -79,13 +81,31 @@ const CollectionCard: React.FC<CollectionCardProps> = ({ catalog }) => {
         </div>
       </CardBody>
       <CardFooter>
-        <LabelGroup isCompact>
-          {catalog.created_at ? (
-            <Label variant="outline" isCompact>
-              Created {formatDate(catalog.created_at)}
-            </Label>
-          ) : null}
-        </LabelGroup>
+        <Flex alignItems={{ default: 'alignItemsCenter' }}>
+          <FlexItem grow={{ default: 'grow' }}>
+            <LabelGroup isCompact>
+              {catalog.created_at ? (
+                <Label variant="outline" isCompact>
+                  Created {formatDate(catalog.created_at)}
+                </Label>
+              ) : null}
+            </LabelGroup>
+          </FlexItem>
+          {onEdit && (
+            <FlexItem>
+              <Button variant="plain" size="sm" onClick={(e) => { e.stopPropagation(); onEdit(catalog); }}>
+                <PencilAltIcon />
+              </Button>
+            </FlexItem>
+          )}
+          {onDelete && (
+            <FlexItem>
+              <Button variant="plain" isDanger size="sm" onClick={(e) => { e.stopPropagation(); onDelete(catalog); }}>
+                <TrashIcon />
+              </Button>
+            </FlexItem>
+          )}
+        </Flex>
       </CardFooter>
     </Card>
   );

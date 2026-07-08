@@ -235,10 +235,11 @@ func (app *App) CreateVolumeHandler(w http.ResponseWriter, r *http.Request, ps h
 
 	bodyBytes, _ := io.ReadAll(r.Body)
 	var ucReq struct {
-		Name            string `json:"name"`
-		VolumeType      string `json:"volume_type"`
-		StorageLocation string `json:"storage_location"`
-		Comment         string `json:"comment"`
+		Name            string            `json:"name"`
+		VolumeType      string            `json:"volume_type"`
+		StorageLocation string            `json:"storage_location"`
+		Comment         string            `json:"comment"`
+		Properties      map[string]string `json:"properties"`
 	}
 	json.Unmarshal(bodyBytes, &ucReq)
 
@@ -251,6 +252,9 @@ func (app *App) CreateVolumeHandler(w http.ResponseWriter, r *http.Request, ps h
 		"volume-type":      ucReq.VolumeType,
 		"storage-location": ucReq.StorageLocation,
 		"comment":          ucReq.Comment,
+	}
+	if len(ucReq.Properties) > 0 {
+		feastBody["properties"] = ucReq.Properties
 	}
 	feastJSON, _ := json.Marshal(feastBody)
 

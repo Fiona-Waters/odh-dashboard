@@ -20,6 +20,7 @@ export type TableInfo = {
   storage_location: string;
   comment: string;
   columns: ColumnInfo[] | null;
+  properties?: Record<string, string>;
 };
 
 export type VolumeInfo = {
@@ -27,6 +28,7 @@ export type VolumeInfo = {
   volume_type: string;
   storage_location: string;
   comment: string;
+  properties?: Record<string, string>;
 };
 
 export type SchemaInfo = {
