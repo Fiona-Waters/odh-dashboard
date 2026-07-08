@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -117,9 +118,10 @@ func (app *App) CatalogDetailHandler(w http.ResponseWriter, r *http.Request, ps 
 						var loadResp struct {
 							MetadataLocation string `json:"metadata-location"`
 							Metadata         struct {
-								Location   string            `json:"location"`
-								Properties map[string]string `json:"properties"`
-								Schemas    []struct {
+								FormatVersion int               `json:"format-version"`
+								Location      string            `json:"location"`
+								Properties    map[string]string `json:"properties"`
+								Schemas       []struct {
 									Fields []struct {
 										ID   int    `json:"id"`
 										Name string `json:"name"`
@@ -134,6 +136,10 @@ func (app *App) CatalogDetailHandler(w http.ResponseWriter, r *http.Request, ps 
 						ti.Comment = loadResp.Metadata.Properties["description"]
 						if f := loadResp.Metadata.Properties["format"]; f != "" {
 							ti.Format = f
+						} else if strings.HasPrefix(loadResp.Metadata.Location, "milvus://") {
+							ti.Format = "MILVUS"
+						} else if loadResp.Metadata.FormatVersion > 0 {
+							ti.Format = "ICEBERG"
 						}
 						if tt := loadResp.Metadata.Properties["table_type"]; tt != "" {
 							ti.TableType = tt

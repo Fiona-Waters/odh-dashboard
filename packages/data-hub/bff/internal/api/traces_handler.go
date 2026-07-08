@@ -24,6 +24,8 @@ type TraceInfo struct {
 	AppName    string `json:"app_name"`
 	TraceName  string `json:"trace_name"`
 	Tokens     int64  `json:"tokens"`
+	Collection string `json:"collection,omitempty"`
+	User       string `json:"user,omitempty"`
 }
 
 type TracesResponse struct {
@@ -37,6 +39,7 @@ func (app *App) TracesHandler(w http.ResponseWriter, r *http.Request, _ httprout
 		experimentID = getEnvOrDefault("MLFLOW_EXPERIMENT_ID", "59")
 	}
 	appNameFilter := r.URL.Query().Get("app_name")
+	assetFilter := r.URL.Query().Get("asset")
 	limitStr := r.URL.Query().Get("limit")
 	limit := 20
 	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
@@ -123,6 +126,12 @@ func (app *App) TracesHandler(w http.ResponseWriter, r *http.Request, _ httprout
 			continue
 		}
 
+		collection := tagMap["collection"]
+		if assetFilter != "" && collection != "" && collection != "__all__" &&
+			!strings.Contains(assetFilter, collection) && !strings.Contains(collection, assetFilter) {
+			continue
+		}
+
 		input := metaMap["mlflow.traceInputs"]
 
 		requestText := extractUserQuery(input)
@@ -147,6 +156,8 @@ func (app *App) TracesHandler(w http.ResponseWriter, r *http.Request, _ httprout
 			AppName:    appName,
 			TraceName:  traceName,
 			Tokens:     totalTokens,
+			Collection: collection,
+			User:       tagMap["user"],
 		})
 
 		if len(traces) >= limit {

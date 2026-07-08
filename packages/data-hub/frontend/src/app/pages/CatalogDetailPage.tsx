@@ -120,8 +120,13 @@ const CatalogDetailPage: React.FC<CatalogDetailPageProps> = ({ catalogName, onBa
   }, [fetchDetail]);
 
   React.useEffect(() => {
-    if (detail?.schemas?.length && !selectedSchema) {
-      setSelectedSchema(detail.schemas[0]);
+    if (detail?.schemas?.length) {
+      if (selectedSchema) {
+        const updated = detail.schemas.find((s) => s.name === selectedSchema.name);
+        if (updated) setSelectedSchema(updated);
+      } else {
+        setSelectedSchema(detail.schemas[0]);
+      }
     }
   }, [detail]);
 

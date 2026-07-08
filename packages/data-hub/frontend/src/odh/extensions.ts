@@ -1,50 +1,38 @@
 import type {
-  NavExtension,
-  RouteExtension,
-  AreaExtension,
+  TabRoutePageExtension,
+  TabRouteTabExtension,
 } from '@odh-dashboard/plugin-core/extension-points';
 
-const DATA_HUB = 'data-hub';
-
-const extensions: (NavExtension | RouteExtension | AreaExtension)[] = [
+const extensions: (TabRoutePageExtension | TabRouteTabExtension)[] = [
   {
-    type: 'app.navigation/section',
+    type: 'app.tab-route/page',
     properties: {
-      id: 'data-hub',
-      title: 'Data Hub',
-      group: '4_data_hub',
-      iconRef: () => import('./DataHubNavIcon'),
+      id: 'data-tab-page',
+      title: 'Data Registry',
+      href: '/ai-hub/data',
+      path: '/ai-hub/data/*',
+      group: '4_data',
+      section: 'ai-hub',
     },
   },
   {
-    type: 'app.navigation/href',
+    type: 'app.tab-route/tab',
     properties: {
-      id: 'data-hub-view',
-      title: 'Browse collections',
-      href: '/data-hub/main-view',
-      section: 'data-hub',
-      path: '/data-hub/main-view/*',
+      pageId: 'data-tab-page',
+      id: 'collections',
+      title: 'Collections',
+      component: () => import('./DataRegistryWrapper'),
+      group: '1_collections',
     },
   },
   {
-    type: 'app.route',
+    type: 'app.tab-route/tab',
     properties: {
-      path: '/data-hub/main-view/*',
-      component: () => import('./DataHubWrapper'),
-    },
-  },
-  {
-    type: 'app.route',
-    properties: {
-      path: '/data-hub/permissions/*',
-      component: () => import('./DataHubPermissionsWrapper'),
-    },
-  },
-  {
-    type: 'app.route',
-    properties: {
-      path: '/data-hub/apps/*',
-      component: () => import('./DataHubAppsWrapper'),
+      pageId: 'data-tab-page',
+      id: 'connections',
+      title: 'Connections',
+      component: () => import('./DataConnectionsWrapper'),
+      group: '2_connections',
     },
   },
 ];

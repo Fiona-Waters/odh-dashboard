@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -55,21 +57,62 @@ func (app *App) TableVersionsHandler(w http.ResponseWriter, r *http.Request, ps 
 		return
 	}
 
-	datasetName := fmt.Sprintf("%s.%s", schemaName, tableName)
-	versionsURL := fmt.Sprintf("%s/api/v1/namespaces/%s/datasets/%s/versions",
-		marquezAPIURL, catalogName, datasetName)
+	// Build candidate dataset names to search in Marquez.
+	// The pipeline emits: namespace={catalog}, dataset="milvus/{milvus_collection}".
+	// We look up the table in Feast to get its storage_location and derive the Milvus collection name.
+	candidates := []string{
+		fmt.Sprintf("%s.%s", schemaName, tableName),
+	}
+
+	// Look up the table from Feast to get storage_location
+	feastClient := newFeastClient()
+	tableDetailURL := feastURL("/namespaces/%s/namespaces/%s/tables/%s", catalogName, schemaName, tableName)
+	detailReq, _ := feastRequest(r, http.MethodGet, tableDetailURL, nil)
+	detailResp, detailErr := feastClient.Do(detailReq)
+	if detailErr == nil {
+		dBody, _ := io.ReadAll(detailResp.Body)
+		detailResp.Body.Close()
+		var loadResp struct {
+			Metadata struct {
+				Location string `json:"location"`
+			} `json:"metadata"`
+		}
+		if json.Unmarshal(dBody, &loadResp) == nil && strings.HasPrefix(loadResp.Metadata.Location, "milvus://") {
+			parts := strings.SplitN(strings.TrimPrefix(loadResp.Metadata.Location, "milvus://"), "/", 2)
+			if len(parts) == 2 {
+				candidates = append(candidates, "milvus/"+parts[1])
+			}
+		}
+	}
+
+	if strings.HasPrefix(tableName, catalogName+"_") {
+		stripped := strings.TrimPrefix(tableName, catalogName+"_")
+		candidates = append(candidates, stripped)
+	}
 
 	client := newFeastClient()
-	resp, err := client.Get(versionsURL)
-	if err != nil {
-		app.serverErrorResponse(w, r, fmt.Errorf("failed to fetch Marquez versions: %w", err))
-		return
+	var body []byte
+	var resp *http.Response
+	for _, dsName := range candidates {
+		versionsURL := fmt.Sprintf("%s/api/v1/namespaces/%s/datasets/%s/versions",
+			marquezAPIURL, catalogName, url.PathEscape(dsName))
+		var err error
+		resp, err = client.Get(versionsURL)
+		if err != nil {
+			continue
+		}
+		body, _ = io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode == 200 {
+			break
+		}
 	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		app.serverErrorResponse(w, r, fmt.Errorf("failed to read Marquez response: %w", err))
+	if body == nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(TableVersionsResponse{
+			TableName: fmt.Sprintf("%s.%s.%s", catalogName, schemaName, tableName),
+			Versions:  []TableVersion{},
+		})
 		return
 	}
 
