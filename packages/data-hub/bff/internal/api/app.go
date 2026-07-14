@@ -222,6 +222,9 @@ func (app *App) Routes() http.Handler {
 	apiRouter.POST(AppsPath, app.RegisterAppHandler)
 	apiRouter.DELETE(AppPath, app.DeleteAppHandler)
 
+	// Data Connections (K8s Secrets with dashboard label)
+	apiRouter.GET(ConnectionsPath, app.ConnectionsHandler)
+
 	// MLflow traces proxy
 	apiRouter.GET(TracesPath, app.TracesHandler)
 
