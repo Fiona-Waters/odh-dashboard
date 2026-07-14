@@ -1,16 +1,19 @@
 import React from 'react';
 import {
   Bullseye,
+  Button,
   EmptyState,
   EmptyStateBody,
   EmptyStateVariant,
   Label,
   PageSection,
   Spinner,
+  Split,
+  SplitItem,
   Title,
 } from '@patternfly/react-core';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@patternfly/react-table';
-import { PluggedIcon } from '@patternfly/react-icons';
+import { ExternalLinkAltIcon, PluggedIcon } from '@patternfly/react-icons';
 import { useConnections } from '~/app/hooks/useDataRegistry';
 
 const ConnectionsPlaceholderPage: React.FC = () => {
@@ -49,9 +52,19 @@ const ConnectionsPlaceholderPage: React.FC = () => {
           variant={EmptyStateVariant.lg}
         >
           <EmptyStateBody>
-            No Data Connections were found. Create a Data Connection in your OpenShift AI
-            project to see it listed here.
+            No Data Connections were found. Create a connection in your OpenShift AI project
+            and it will appear here.
           </EmptyStateBody>
+          <Button
+            variant="primary"
+            icon={<ExternalLinkAltIcon />}
+            iconPosition="end"
+            component="a"
+            href="/projects"
+            target="_blank"
+          >
+            Go to Projects
+          </Button>
         </EmptyState>
       </PageSection>
     );
@@ -59,9 +72,23 @@ const ConnectionsPlaceholderPage: React.FC = () => {
 
   return (
     <PageSection>
-      <Title headingLevel="h1" style={{ marginBottom: '1rem' }}>
-        Data connections
-      </Title>
+      <Split hasGutter style={{ marginBottom: '1rem' }}>
+        <SplitItem isFilled>
+          <Title headingLevel="h1">Data connections</Title>
+        </SplitItem>
+        <SplitItem>
+          <Button
+            variant="secondary"
+            icon={<ExternalLinkAltIcon />}
+            iconPosition="end"
+            component="a"
+            href="/projects"
+            target="_blank"
+          >
+            Manage connections in Projects
+          </Button>
+        </SplitItem>
+      </Split>
       <Table aria-label="Data connections" variant="compact">
         <Thead>
           <Tr>
@@ -84,9 +111,15 @@ const ConnectionsPlaceholderPage: React.FC = () => {
                 </Label>
               </Td>
               <Td dataLabel="Namespace">
-                <Label color="grey" isCompact>
+                <Button
+                  variant="link"
+                  isInline
+                  component="a"
+                  href={`/projects/${c.namespace}?section=connections`}
+                  target="_blank"
+                >
                   {c.namespace}
-                </Label>
+                </Button>
               </Td>
               <Td dataLabel="Endpoint">{c.endpoint || '—'}</Td>
               <Td dataLabel="Bucket">{c.bucket || '—'}</Td>
