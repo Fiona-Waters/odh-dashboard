@@ -329,7 +329,7 @@ const CollectionDetailPage: React.FC = () => {
                 </SplitItem>
                 <SplitItem>
                   <Button variant="secondary" size="sm" onClick={() => setShowCreateTable(true)}>
-                    Create table
+                    Register table
                   </Button>
                 </SplitItem>
               </Split>
@@ -436,7 +436,7 @@ const CollectionDetailPage: React.FC = () => {
                 </SplitItem>
                 <SplitItem>
                   <Button variant="secondary" size="sm" onClick={() => setShowCreateVolume(true)}>
-                    Create volume
+                    Register volume
                   </Button>
                 </SplitItem>
               </Split>
@@ -519,7 +519,7 @@ const CollectionDetailPage: React.FC = () => {
       {/* Create Table Modal */}
       {showCreateTable && (
         <Modal isOpen onClose={() => { setShowCreateTable(false); resetTableForm(); }} variant="small">
-          <ModalHeader title="Create table" />
+          <ModalHeader title="Register table" />
           <ModalBody>
             <Form>
               {tableError && <Alert variant="danger" isInline title={tableError} />}
@@ -597,7 +597,7 @@ const CollectionDetailPage: React.FC = () => {
       {/* Create Volume Modal */}
       {showCreateVolume && (
         <Modal isOpen onClose={() => { setShowCreateVolume(false); resetVolumeForm(); }} variant="small">
-          <ModalHeader title="Create volume" />
+          <ModalHeader title="Register volume" />
           <ModalBody>
             <Form>
               {volumeError && <Alert variant="danger" isInline title={volumeError} />}
