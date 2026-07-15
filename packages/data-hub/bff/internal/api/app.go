@@ -197,6 +197,10 @@ func (app *App) Routes() http.Handler {
 	// Namespace properties update
 	apiRouter.POST(ApiPathPrefix+"/catalogs/:name/properties", app.UpdateNamespaceHandler)
 
+	// FeatureStore CR management
+	apiRouter.GET(FeatureStorePath, app.GetFeatureStoreHandler)
+	apiRouter.POST(FeatureStorePath, app.EnsureFeatureStoreHandler)
+
 	// Volume provenance (Milvus stats)
 	apiRouter.GET(ProvenancePath, app.MilvusStatsHandler)
 
