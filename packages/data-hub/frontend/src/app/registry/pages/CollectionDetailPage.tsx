@@ -15,6 +15,8 @@ import {
   EmptyStateVariant,
   Form,
   FormGroup,
+  FormSelect,
+  FormSelectOption,
   Label,
   LabelGroup,
   Modal,
@@ -33,12 +35,12 @@ import {
 } from '@patternfly/react-core';
 import { Table, Thead, Tbody, Tr, Th, Td } from '@patternfly/react-table';
 import { ExternalLinkAltIcon, PencilAltIcon, TrashIcon } from '@patternfly/react-icons';
-import { useCatalogDetail, useUIConfig, createTable, createVolume, deleteTable, deleteVolume, updateTable, updateVolume } from '~/app/hooks/useDataRegistry';
+import { useCatalogDetail, useUIConfig, useConnections, createTable, createVolume, deleteTable, deleteVolume, updateTable, updateVolume } from '~/app/hooks/useDataRegistry';
 import { dataRegistryUrl, tableDetailUrl, volumeDetailUrl } from '~/app/registry/routes';
 import type { TableInfo, VolumeInfo } from '~/app/types/dataRegistry';
 import TagInput from '~/app/registry/components/TagInput';
 
-const INTERNAL_PROPS = new Set(['format', 'table_type', '_catalog_managed', 'asset_type', 'location', 'volume_type', 'comment']);
+const INTERNAL_PROPS = new Set(['format', 'table_type', '_catalog_managed', 'asset_type', 'location', 'volume_type', 'comment', 'connection-ref']);
 
 function userProps(props?: Record<string, string>): Record<string, string> {
   if (!props) return {};
@@ -53,6 +55,7 @@ const CollectionDetailPage: React.FC = () => {
   const { collectionName } = useParams<{ collectionName: string }>();
   const [detail, loaded, error, refresh] = useCatalogDetail(collectionName);
   const [config] = useUIConfig();
+  const [connections] = useConnections();
   const navigate = useNavigate();
 
   // Create Table state
@@ -61,6 +64,7 @@ const CollectionDetailPage: React.FC = () => {
   const [newTableFormat, setNewTableFormat] = React.useState('DELTA');
   const [newTableLocation, setNewTableLocation] = React.useState('');
   const [newTableColumns, setNewTableColumns] = React.useState('');
+  const [newTableConnectionRef, setNewTableConnectionRef] = React.useState('');
   const [creatingTable, setCreatingTable] = React.useState(false);
   const [tableError, setTableError] = React.useState<string | null>(null);
 
@@ -70,6 +74,7 @@ const CollectionDetailPage: React.FC = () => {
   const [newVolumeLocation, setNewVolumeLocation] = React.useState('');
   const [newVolumeComment, setNewVolumeComment] = React.useState('');
   const [newVolumeTags, setNewVolumeTags] = React.useState<Record<string, string>>({});
+  const [newVolumeConnectionRef, setNewVolumeConnectionRef] = React.useState('');
   const [creatingVolume, setCreatingVolume] = React.useState(false);
   const [volumeError, setVolumeError] = React.useState<string | null>(null);
 
@@ -78,6 +83,7 @@ const CollectionDetailPage: React.FC = () => {
   const [editTableDescription, setEditTableDescription] = React.useState('');
   const [editTableFormat, setEditTableFormat] = React.useState('');
   const [editTableLocation, setEditTableLocation] = React.useState('');
+  const [editTableConnectionRef, setEditTableConnectionRef] = React.useState('');
   const [savingTable, setSavingTable] = React.useState(false);
   const [editTableError, setEditTableError] = React.useState<string | null>(null);
 
@@ -86,6 +92,7 @@ const CollectionDetailPage: React.FC = () => {
   const [editVolumeComment, setEditVolumeComment] = React.useState('');
   const [editVolumeLocation, setEditVolumeLocation] = React.useState('');
   const [editVolumeTags, setEditVolumeTags] = React.useState<Record<string, string>>({});
+  const [editVolumeConnectionRef, setEditVolumeConnectionRef] = React.useState('');
   const [savingVolume, setSavingVolume] = React.useState(false);
   const [editVolumeError, setEditVolumeError] = React.useState<string | null>(null);
 
@@ -94,6 +101,7 @@ const CollectionDetailPage: React.FC = () => {
     setNewTableFormat('DELTA');
     setNewTableLocation('');
     setNewTableColumns('');
+    setNewTableConnectionRef('');
     setTableError(null);
   };
 
@@ -102,6 +110,7 @@ const CollectionDetailPage: React.FC = () => {
     setNewVolumeLocation('');
     setNewVolumeComment('');
     setNewVolumeTags({});
+    setNewVolumeConnectionRef('');
     setVolumeError(null);
   };
 
@@ -148,11 +157,17 @@ const CollectionDetailPage: React.FC = () => {
         })
       : [];
 
+    const properties: Record<string, string> = {};
+    if (newTableConnectionRef) {
+      properties['connection-ref'] = newTableConnectionRef;
+    }
+
     createTable(collectionName!, schemaName, {
       name: newTableName,
       data_source_format: newTableFormat,
       storage_location: newTableLocation || `s3://poc-underwriting/tables/${collectionName}/default/${newTableName}`,
       columns,
+      properties: Object.keys(properties).length > 0 ? properties : undefined,
     })
       .then(() => {
         setShowCreateTable(false);
@@ -167,11 +182,16 @@ const CollectionDetailPage: React.FC = () => {
     setCreatingVolume(true);
     setVolumeError(null);
 
+    const volumeProps = { ...newVolumeTags };
+    if (newVolumeConnectionRef) {
+      volumeProps['connection-ref'] = newVolumeConnectionRef;
+    }
+
     createVolume(collectionName!, schemaName, {
       name: newVolumeName,
       storage_location: newVolumeLocation || `s3://poc-underwriting/volumes/`,
       comment: newVolumeComment || undefined,
-      properties: Object.keys(newVolumeTags).length > 0 ? newVolumeTags : undefined,
+      properties: Object.keys(volumeProps).length > 0 ? volumeProps : undefined,
     })
       .then(() => {
         setShowCreateVolume(false);
@@ -201,6 +221,7 @@ const CollectionDetailPage: React.FC = () => {
     setEditTableDescription(t.comment || '');
     setEditTableFormat(t.data_source_format || '');
     setEditTableLocation(t.storage_location || '');
+    setEditTableConnectionRef(t.properties?.['connection-ref'] || '');
     setEditTableError(null);
   };
 
@@ -208,10 +229,15 @@ const CollectionDetailPage: React.FC = () => {
     if (!editingTable) return;
     setSavingTable(true);
     setEditTableError(null);
+    const properties: Record<string, string> = {};
+    if (editTableConnectionRef) {
+      properties['connection-ref'] = editTableConnectionRef;
+    }
     updateTable(collectionName!, schemaName, editingTable.name, {
       comment: editTableDescription,
       data_source_format: editTableFormat,
       storage_location: editTableLocation,
+      properties: Object.keys(properties).length > 0 ? properties : undefined,
     })
       .then(() => { setEditingTable(null); refresh(); })
       .catch((e) => setEditTableError(e.message))
@@ -223,6 +249,7 @@ const CollectionDetailPage: React.FC = () => {
     setEditVolumeComment(v.comment || '');
     setEditVolumeLocation(v.storage_location || '');
     setEditVolumeTags(userProps(v.properties));
+    setEditVolumeConnectionRef(v.properties?.['connection-ref'] || '');
     setEditVolumeError(null);
   };
 
@@ -230,11 +257,14 @@ const CollectionDetailPage: React.FC = () => {
     if (!editingVolume) return;
     setSavingVolume(true);
     setEditVolumeError(null);
-    const props = Object.keys(editVolumeTags).length > 0 ? editVolumeTags : undefined;
+    const props = { ...editVolumeTags };
+    if (editVolumeConnectionRef) {
+      props['connection-ref'] = editVolumeConnectionRef;
+    }
     updateVolume(collectionName!, schemaName, editingVolume.name, {
       comment: editVolumeComment,
       'storage-location': editVolumeLocation,
-      properties: props,
+      properties: Object.keys(props).length > 0 ? props : undefined,
     })
       .then(() => { setEditingVolume(null); refresh(); })
       .catch((e) => setEditVolumeError(e.message))
@@ -344,11 +374,12 @@ const CollectionDetailPage: React.FC = () => {
                   <Thead>
                     <Tr>
                       <Th width={15}>Name</Th>
-                      <Th width={15}>Description</Th>
+                      <Th width={10}>Description</Th>
                       <Th width={10}>Format</Th>
                       <Th width={10}>Type</Th>
-                      <Th width={20}>Storage location</Th>
-                      <Th width={10}>Columns</Th>
+                      <Th width={15}>Storage location</Th>
+                      <Th width={10}>Connection</Th>
+                      <Th width={5}>Columns</Th>
                       <Th width={15}>Tags</Th>
                       <Th width={10} />
                     </Tr>
@@ -356,6 +387,7 @@ const CollectionDetailPage: React.FC = () => {
                   <Tbody>
                     {filteredTables.map((t: TableInfo) => {
                       const tags = userProps(t.properties);
+                      const connectionRef = t.properties?.['connection-ref'];
                       return (
                         <Tr key={t.name}>
                           <Td dataLabel="Name">{t.name}</Td>
@@ -372,6 +404,11 @@ const CollectionDetailPage: React.FC = () => {
                           </Td>
                           <Td dataLabel="Storage location">
                             <Content component="small">{t.storage_location || '—'}</Content>
+                          </Td>
+                          <Td dataLabel="Connection">
+                            {connectionRef ? (
+                              <Label color="cyan" isCompact>{connectionRef}</Label>
+                            ) : '—'}
                           </Td>
                           <Td dataLabel="Columns">{t.columns?.length ?? 0}</Td>
                           <Td dataLabel="Tags">
@@ -451,9 +488,10 @@ const CollectionDetailPage: React.FC = () => {
                   <Thead>
                     <Tr>
                       <Th width={15}>Name</Th>
-                      <Th width={15}>Description</Th>
+                      <Th width={10}>Description</Th>
                       <Th width={10}>Type</Th>
-                      <Th width={25}>Storage location</Th>
+                      <Th width={20}>Storage location</Th>
+                      <Th width={10}>Connection</Th>
                       <Th width={20}>Tags</Th>
                       <Th width={15} />
                     </Tr>
@@ -461,6 +499,7 @@ const CollectionDetailPage: React.FC = () => {
                   <Tbody>
                     {filteredVolumes.map((v: VolumeInfo) => {
                       const tags = userProps(v.properties);
+                      const connectionRef = v.properties?.['connection-ref'];
                       return (
                         <Tr key={v.name}>
                           <Td dataLabel="Name">{v.name}</Td>
@@ -474,6 +513,11 @@ const CollectionDetailPage: React.FC = () => {
                           </Td>
                           <Td dataLabel="Storage location">
                             <Content component="small">{v.storage_location || '—'}</Content>
+                          </Td>
+                          <Td dataLabel="Connection">
+                            {connectionRef ? (
+                              <Label color="cyan" isCompact>{connectionRef}</Label>
+                            ) : '—'}
                           </Td>
                           <Td dataLabel="Tags">
                             {Object.keys(tags).length > 0 ? (
@@ -529,7 +573,15 @@ const CollectionDetailPage: React.FC = () => {
               <FormGroup label="Format" fieldId="table-format">
                 <TextInput id="table-format" value={newTableFormat} onChange={(_e, v) => setNewTableFormat(v)} placeholder="DELTA" />
               </FormGroup>
-              <FormGroup label="Storage location" fieldId="table-location">
+              <FormGroup label="Connection" fieldId="table-connection">
+                <FormSelect id="table-connection" value={newTableConnectionRef} onChange={(_e, v) => setNewTableConnectionRef(v)}>
+                  <FormSelectOption value="" label="None — use S3 location" />
+                  {connections.map((c) => (
+                    <FormSelectOption key={c.name} value={c.name} label={c.displayName || c.name} />
+                  ))}
+                </FormSelect>
+              </FormGroup>
+              <FormGroup label="Storage location (S3 URI)" fieldId="table-location">
                 <TextInput id="table-location" value={newTableLocation} onChange={(_e, v) => setNewTableLocation(v)} placeholder="s3://bucket/path" />
               </FormGroup>
               <FormGroup label="Columns (comma-separated: name type)" fieldId="table-columns">
@@ -551,7 +603,15 @@ const CollectionDetailPage: React.FC = () => {
           <ModalBody>
             <Form>
               {editVolumeError && <Alert variant="danger" isInline title={editVolumeError} />}
-              <FormGroup label="Storage location" fieldId="edit-vol-location">
+              <FormGroup label="Connection" fieldId="edit-vol-connection">
+                <FormSelect id="edit-vol-connection" value={editVolumeConnectionRef} onChange={(_e, v) => setEditVolumeConnectionRef(v)}>
+                  <FormSelectOption value="" label="None — use S3 location" />
+                  {connections.map((c) => (
+                    <FormSelectOption key={c.name} value={c.name} label={c.displayName || c.name} />
+                  ))}
+                </FormSelect>
+              </FormGroup>
+              <FormGroup label="Storage location (S3 URI)" fieldId="edit-vol-location">
                 <TextInput id="edit-vol-location" value={editVolumeLocation} onChange={(_e, v) => setEditVolumeLocation(v)} />
               </FormGroup>
               <FormGroup label="Description" fieldId="edit-vol-comment">
@@ -582,7 +642,15 @@ const CollectionDetailPage: React.FC = () => {
               <FormGroup label="Format" fieldId="edit-table-format">
                 <TextInput id="edit-table-format" value={editTableFormat} onChange={(_e, v) => setEditTableFormat(v)} />
               </FormGroup>
-              <FormGroup label="Storage location" fieldId="edit-table-location">
+              <FormGroup label="Connection" fieldId="edit-table-connection">
+                <FormSelect id="edit-table-connection" value={editTableConnectionRef} onChange={(_e, v) => setEditTableConnectionRef(v)}>
+                  <FormSelectOption value="" label="None — use S3 location" />
+                  {connections.map((c) => (
+                    <FormSelectOption key={c.name} value={c.name} label={c.displayName || c.name} />
+                  ))}
+                </FormSelect>
+              </FormGroup>
+              <FormGroup label="Storage location (S3 URI)" fieldId="edit-table-location">
                 <TextInput id="edit-table-location" value={editTableLocation} onChange={(_e, v) => setEditTableLocation(v)} />
               </FormGroup>
             </Form>
@@ -604,7 +672,15 @@ const CollectionDetailPage: React.FC = () => {
               <FormGroup label="Volume name" isRequired fieldId="volume-name">
                 <TextInput id="volume-name" value={newVolumeName} onChange={(_e, v) => setNewVolumeName(v)} isRequired />
               </FormGroup>
-              <FormGroup label="Storage location" fieldId="volume-location">
+              <FormGroup label="Connection" fieldId="volume-connection">
+                <FormSelect id="volume-connection" value={newVolumeConnectionRef} onChange={(_e, v) => setNewVolumeConnectionRef(v)}>
+                  <FormSelectOption value="" label="None — use S3 location" />
+                  {connections.map((c) => (
+                    <FormSelectOption key={c.name} value={c.name} label={c.displayName || c.name} />
+                  ))}
+                </FormSelect>
+              </FormGroup>
+              <FormGroup label="Storage location (S3 URI)" fieldId="volume-location">
                 <TextInput id="volume-location" value={newVolumeLocation} onChange={(_e, v) => setNewVolumeLocation(v)} placeholder="s3://bucket/path" />
               </FormGroup>
               <FormGroup label="Description" fieldId="volume-comment">

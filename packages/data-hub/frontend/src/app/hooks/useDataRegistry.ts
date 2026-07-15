@@ -109,6 +109,18 @@ export const useTraces = (
 export const useUIConfig = (): FetchState<UIConfig | null> =>
   useBffFetch<UIConfig | null>(`${API_PREFIX}/config`, null);
 
+export interface DataConnection {
+  name: string;
+  displayName: string;
+  namespace: string;
+  type: string;
+  endpoint?: string;
+  bucket?: string;
+}
+
+export const useConnections = (): FetchState<DataConnection[]> =>
+  useBffFetch<DataConnection[]>(`${API_PREFIX}/connections`, [], (json) => (json.connections ?? []) as DataConnection[]);
+
 // --- Mutation helpers (not hooks — plain async fetch wrappers) ---
 
 export async function createCatalog(
@@ -135,6 +147,7 @@ export async function createTable(
     data_source_format?: string;
     storage_location?: string;
     columns?: { name: string; type_name: string }[];
+    properties?: Record<string, string>;
   },
 ): Promise<void> {
   const resp = await fetch(`${API_PREFIX}/catalogs/${catalogName}/schemas/${schemaName}/tables`, {
@@ -148,6 +161,7 @@ export async function createTable(
       data_source_format: table.data_source_format || 'DELTA',
       storage_location: table.storage_location,
       columns: table.columns || [],
+      properties: table.properties,
     }),
   });
   if (!resp.ok) {

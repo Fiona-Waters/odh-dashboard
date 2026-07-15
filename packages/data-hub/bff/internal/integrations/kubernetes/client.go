@@ -13,4 +13,5 @@ type KubernetesClientInterface interface {
 	GetNamespaces(ctx context.Context, identity *RequestIdentity) ([]corev1.Namespace, error)
 	IsClusterAdmin(identity *RequestIdentity) (bool, error)
 	GetUser(identity *RequestIdentity) (string, error)
+	ListConnectionSecrets(ctx context.Context) ([]corev1.Secret, error)
 }
