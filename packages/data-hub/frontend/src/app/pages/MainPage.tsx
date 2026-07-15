@@ -9,13 +9,18 @@ import {
   EmptyStateVariant,
   Form,
   FormGroup,
+  FormHelperText,
   Gallery,
   GalleryItem,
+  HelperText,
+  HelperTextItem,
   Modal,
   ModalBody,
   ModalFooter,
   ModalHeader,
   PageSection,
+  SimpleList,
+  SimpleListItem,
   Spinner,
   Content,
   Label,
@@ -27,6 +32,7 @@ import {
 } from '@patternfly/react-core';
 import { CatalogIcon, CogIcon, PencilAltIcon, PlusCircleIcon, TrashIcon } from '@patternfly/react-icons';
 import CatalogDetailPage from './CatalogDetailPage';
+import { useNamespaces } from '~/app/hooks/useNamespaces';
 
 type Catalog = {
   name: string;
@@ -49,6 +55,10 @@ const MainPage: React.FC = () => {
   const [editingCatalog, setEditingCatalog] = React.useState<Catalog | null>(null);
   const [editComment, setEditComment] = React.useState('');
   const [savingEdit, setSavingEdit] = React.useState(false);
+  const [selectedProject, setSelectedProject] = React.useState('');
+  const [ensuringFeatureStore, setEnsuringFeatureStore] = React.useState(false);
+  const [featureStoreStatus, setFeatureStoreStatus] = React.useState<string | null>(null);
+  const [namespaces, namespacesLoaded] = useNamespaces();
 
   React.useEffect(() => {
     fetch('/data-hub/api/v1/admin')
@@ -57,17 +67,48 @@ const MainPage: React.FC = () => {
       .catch(() => {});
   }, []);
 
-  const handleCreateCatalog = () => {
-    fetch('/data-hub/api/v1/catalogs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newCatalogName, comment: newCatalogComment }),
-    }).then(() => {
+  const handleCreateCatalog = async () => {
+    if (!selectedProject) return;
+    setEnsuringFeatureStore(true);
+    setFeatureStoreStatus('Checking FeatureStore in project...');
+
+    try {
+      const ensureResp = await fetch(`/data-hub/api/v1/featurestore/${selectedProject}`, {
+        method: 'POST',
+      });
+      const ensureData = await ensureResp.json();
+
+      if (ensureData.status === 'ready' || ensureData.status === 'created') {
+        setFeatureStoreStatus(
+          ensureData.status === 'created'
+            ? 'FeatureStore created — setting up...'
+            : 'FeatureStore ready',
+        );
+      } else {
+        setFeatureStoreStatus(`FeatureStore status: ${ensureData.status}`);
+      }
+
+      await fetch('/data-hub/api/v1/catalogs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newCatalogName,
+          comment: newCatalogComment,
+          project: selectedProject,
+        }),
+      });
+
       setShowCreateCatalog(false);
       setNewCatalogName('');
       setNewCatalogComment('');
+      setSelectedProject('');
+      setFeatureStoreStatus(null);
       fetchCatalogs();
-    });
+    } catch (e) {
+      setFeatureStoreStatus(`Error: ${e}`);
+    } finally {
+      setEnsuringFeatureStore(false);
+    }
   };
 
   const openEditCatalog = (catalog: Catalog) => {
@@ -272,21 +313,61 @@ const MainPage: React.FC = () => {
         )}
       </PageSection>
       {showCreateCatalog ? (
-        <Modal isOpen onClose={() => setShowCreateCatalog(false)} variant="small">
+        <Modal isOpen onClose={() => { setShowCreateCatalog(false); setFeatureStoreStatus(null); }} variant="small">
           <ModalHeader title="Create Collection" />
           <ModalBody>
             <Form>
+              <FormGroup label="Project" isRequired fieldId="catalog-project">
+                {!namespacesLoaded ? (
+                  <Spinner size="md" aria-label="Loading projects" />
+                ) : (
+                  <SimpleList
+                    aria-label="Select a project"
+                    onSelect={(_e, props) => setSelectedProject(String(props.itemId))}
+                  >
+                    {namespaces.map((ns) => (
+                      <SimpleListItem
+                        key={ns.metadata.name}
+                        itemId={ns.metadata.name}
+                        isActive={selectedProject === ns.metadata.name}
+                      >
+                        {ns.metadata.name}
+                      </SimpleListItem>
+                    ))}
+                  </SimpleList>
+                )}
+                <FormHelperText>
+                  <HelperText>
+                    <HelperTextItem>
+                      Select the Data Science Project where the collection will be created.
+                      A FeatureStore will be set up automatically if one does not exist.
+                    </HelperTextItem>
+                  </HelperText>
+                </FormHelperText>
+              </FormGroup>
               <FormGroup label="Name" isRequired fieldId="catalog-name">
                 <TextInput id="catalog-name" value={newCatalogName} onChange={(_e, v) => setNewCatalogName(v)} placeholder="e.g. underwriting" />
               </FormGroup>
               <FormGroup label="Description" fieldId="catalog-comment">
                 <TextInput id="catalog-comment" value={newCatalogComment} onChange={(_e, v) => setNewCatalogComment(v)} placeholder="Optional description" />
               </FormGroup>
+              {featureStoreStatus ? (
+                <FormGroup fieldId="featurestore-status">
+                  <Content component="small">{featureStoreStatus}</Content>
+                </FormGroup>
+              ) : null}
             </Form>
           </ModalBody>
           <ModalFooter>
-            <Button variant="primary" onClick={handleCreateCatalog} isDisabled={!newCatalogName}>Create</Button>
-            <Button variant="link" onClick={() => setShowCreateCatalog(false)}>Cancel</Button>
+            <Button
+              variant="primary"
+              onClick={handleCreateCatalog}
+              isDisabled={!newCatalogName || !selectedProject || ensuringFeatureStore}
+              isLoading={ensuringFeatureStore}
+            >
+              Create
+            </Button>
+            <Button variant="link" onClick={() => { setShowCreateCatalog(false); setFeatureStoreStatus(null); }}>Cancel</Button>
           </ModalFooter>
         </Modal>
       ) : null}

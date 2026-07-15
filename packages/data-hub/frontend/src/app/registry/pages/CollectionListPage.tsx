@@ -3,13 +3,19 @@ import {
   Alert,
   Bullseye,
   Button,
+  Content,
   EmptyState,
   EmptyStateBody,
   EmptyStateVariant,
   Form,
   FormGroup,
+  FormHelperText,
+  FormSelect,
+  FormSelectOption,
   Grid,
   GridItem,
+  HelperText,
+  HelperTextItem,
   Label,
   Modal,
   ModalBody,
@@ -21,6 +27,7 @@ import {
   TextInput,
   Toolbar,
   ToolbarContent,
+  ToolbarGroup,
   ToolbarItem,
 } from '@patternfly/react-core';
 import { DatabaseIcon } from '@patternfly/react-icons';
@@ -28,6 +35,7 @@ import { useCatalogs, createCatalog, deleteCatalog, updateCatalog } from '~/app/
 import type { Catalog } from '~/app/types/dataRegistry';
 import CollectionCard from '~/app/registry/components/CollectionCard';
 import TagInput from '~/app/registry/components/TagInput';
+import { useNamespaces } from '~/app/hooks/useNamespaces';
 
 const GRID_SPANS = { sm: 6 as const, md: 6 as const, lg: 6 as const, xl: 6 as const, xl2: 3 as const };
 
@@ -41,6 +49,8 @@ const CollectionListPage: React.FC = () => {
   const [newTags, setNewTags] = React.useState<Record<string, string>>({});
   const [creating, setCreating] = React.useState(false);
   const [createError, setCreateError] = React.useState<string | null>(null);
+  const [namespaces, namespacesLoaded] = useNamespaces();
+  const [selectedProject, setSelectedProject] = React.useState('');
 
   // Edit state
   const [editingCatalog, setEditingCatalog] = React.useState<Catalog | null>(null);
@@ -95,16 +105,20 @@ const CollectionListPage: React.FC = () => {
   };
 
   const filtered = React.useMemo(() => {
-    if (!filter) {
-      return catalogs;
+    let result = catalogs;
+    if (selectedProject) {
+      result = result.filter((c) => c.project === selectedProject || !c.project);
     }
-    const lc = filter.toLowerCase();
-    return catalogs.filter(
-      (c) =>
-        c.name.toLowerCase().includes(lc) ||
-        (c.comment && c.comment.toLowerCase().includes(lc)),
-    );
-  }, [catalogs, filter]);
+    if (filter) {
+      const lc = filter.toLowerCase();
+      result = result.filter(
+        (c) =>
+          c.name.toLowerCase().includes(lc) ||
+          (c.comment && c.comment.toLowerCase().includes(lc)),
+      );
+    }
+    return result;
+  }, [catalogs, filter, selectedProject]);
 
   if (!loaded) {
     return (
@@ -135,7 +149,36 @@ const CollectionListPage: React.FC = () => {
     <PageSection>
       <Toolbar>
         <ToolbarContent>
-          <ToolbarItem style={{ minWidth: '300px' }}>
+          <ToolbarGroup>
+            <ToolbarItem>
+              <Content component="small" style={{ fontWeight: 600, paddingRight: '8px', lineHeight: '36px' }}>
+                Project
+              </Content>
+            </ToolbarItem>
+            <ToolbarItem>
+              {!namespacesLoaded ? (
+                <Spinner size="md" aria-label="Loading projects" />
+              ) : (
+                <FormSelect
+                  value={selectedProject}
+                  onChange={(_e, val) => setSelectedProject(val)}
+                  aria-label="Select project"
+                  style={{ minWidth: '200px' }}
+                >
+                  <FormSelectOption key="" value="" label="All projects" />
+                  {namespaces.map((ns) => (
+                    <FormSelectOption
+                      key={ns.metadata.name}
+                      value={ns.metadata.name}
+                      label={ns.metadata.name}
+                    />
+                  ))}
+                </FormSelect>
+              )}
+            </ToolbarItem>
+          </ToolbarGroup>
+          <ToolbarItem variant="separator" />
+          <ToolbarItem style={{ minWidth: '250px' }}>
             <SearchInput
               placeholder="Filter by name or description"
               value={filter}
@@ -145,7 +188,7 @@ const CollectionListPage: React.FC = () => {
           </ToolbarItem>
           <ToolbarItem variant="separator" />
           <ToolbarItem>
-            <Label color="blue">{catalogs.length} collections</Label>
+            <Label color="blue">{filtered.length} collections</Label>
           </ToolbarItem>
           <ToolbarItem align={{ default: 'alignEnd' }}>
             <Button variant="primary" onClick={() => setShowCreate(true)}>
